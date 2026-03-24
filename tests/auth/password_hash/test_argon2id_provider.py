@@ -1,11 +1,14 @@
 """Tests for the Argon2id password hash provider."""
 
 from password_hash.hash_interface import password_hash_providers
-from password_hash.providers.argon2id_provider import argon2id, argon2id_default_provider
+from password_hash.providers.argon2id_provider import (
+    Argon2IdProvider,
+    argon2id_default_provider,
+)
 
 
 def test_argon2id_hash_and_verify_round_trip() -> None:
-    provider = argon2id()
+    provider = Argon2IdProvider()
     password = b"password123"
 
     hash_info = provider.get_hash(password)
@@ -16,7 +19,7 @@ def test_argon2id_hash_and_verify_round_trip() -> None:
 
 
 def test_argon2id_verify_rejects_wrong_password() -> None:
-    provider = argon2id()
+    provider = Argon2IdProvider()
     password = b"password123"
 
     hash_info = provider.get_hash(password)
@@ -28,7 +31,7 @@ def test_duplicate_argon2id_instance_references_existing_provider() -> None:
     provider_name = argon2id_default_provider.provider_name
     registered_provider = password_hash_providers[provider_name]
 
-    duplicate_provider = argon2id()
+    duplicate_provider = Argon2IdProvider()
 
     assert duplicate_provider is not registered_provider
     assert duplicate_provider.provider_name == provider_name

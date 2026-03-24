@@ -1,22 +1,20 @@
 """Authentication interfaces for password hash providers."""
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from secrets import token_bytes
 from typing import NamedTuple
 
 # Singleton hash provider instances keyed by provider name.
-password_hash_providers: dict[str, "Abstract_Password_Hasher"] = {}
+password_hash_providers: dict[str, AbstractPasswordHasher] = {}
 
 
-class Hash_Info(NamedTuple):
+class HashInfo(NamedTuple):
     hasher_name: str
     hash: bytes
     salt: bytes
 
 
-class Abstract_Password_Hasher(ABC):
+class AbstractPasswordHasher(ABC):
     def __init__(self) -> None:
         super().__init__()
 
@@ -33,7 +31,7 @@ class Abstract_Password_Hasher(ABC):
         """Return a unique provider name and configuration signature."""
 
     @abstractmethod
-    def get_hash(self, secret: bytes) -> Hash_Info:
+    def get_hash(self, secret: bytes) -> HashInfo:
         """Generate a hash and salt for the provided secret."""
 
     @abstractmethod
@@ -43,5 +41,5 @@ class Abstract_Password_Hasher(ABC):
     def _generate_salt(self) -> bytes:
         return token_bytes(16)
 
-    def _reference_other(self, other: "Abstract_Password_Hasher") -> None:
+    def _reference_other(self, other: "AbstractPasswordHasher") -> None:
         """Copy state from an existing singleton provider when needed."""
