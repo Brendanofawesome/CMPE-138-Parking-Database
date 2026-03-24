@@ -4,10 +4,6 @@ from abc import ABC, abstractmethod
 from secrets import token_bytes
 from typing import NamedTuple
 
-# Singleton hash provider instances keyed by provider name.
-password_hash_providers: dict[str, AbstractPasswordHasher] = {}
-
-
 class HashInfo(NamedTuple):
     hasher_name: str
     hash: bytes
@@ -43,3 +39,7 @@ class AbstractPasswordHasher(ABC):
 
     def _reference_other(self, other: "AbstractPasswordHasher") -> None:
         """Copy state from an existing singleton provider when needed."""
+
+
+# Singleton hash provider instances keyed by provider name.
+password_hash_providers: dict[str, AbstractPasswordHasher] = {}

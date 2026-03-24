@@ -57,11 +57,14 @@ class Argon2IdProvider(AbstractPasswordHasher):
 
     def _reference_other(self, other: AbstractPasswordHasher) -> None:
         if isinstance(other, Argon2IdProvider):
-            self._config = other._config
+            self._config = other.get_config()
         else:
             raise RuntimeError(
                 "hashing provider tried to reference a different provider subclass"
             )
+            
+    def get_config(self) -> Argon2IdConfig:
+        return self._config
 
     @property
     def provider_name(self) -> str:
