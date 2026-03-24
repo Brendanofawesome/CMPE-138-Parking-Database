@@ -62,7 +62,7 @@ class Argon2IdProvider(AbstractPasswordHasher):
             raise RuntimeError(
                 "hashing provider tried to reference a different provider subclass"
             )
-            
+
     def get_config(self) -> Argon2IdConfig:
         return self._config
 
