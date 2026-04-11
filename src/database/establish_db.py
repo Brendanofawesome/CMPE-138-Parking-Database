@@ -1,5 +1,4 @@
 import sqlite3
-import sys
 from contextlib import contextmanager
 from typing import Iterator
 from dataclasses import dataclass
@@ -151,6 +150,7 @@ def _import_table_modules(package_name: str = "database") -> None:
 
 
 if __name__ == "__main__":
+    import sys # pylint: disable=import-outside-toplevel
     SRC_PATH = str(Path(__file__).resolve().parents[1])
     if SRC_PATH not in sys.path:
         sys.path.insert(0, SRC_PATH)
