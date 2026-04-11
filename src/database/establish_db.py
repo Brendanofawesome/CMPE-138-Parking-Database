@@ -1,5 +1,6 @@
 import sqlite3
 from contextlib import contextmanager
+from typing import Iterator
 from dataclasses import dataclass
 from pathlib import Path #to check if the database exists
 
@@ -46,7 +47,7 @@ def register_table(table: Table) -> None:
 
 #get a connection handle to the database
 @contextmanager
-def get_connection():
+def get_connection() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     try:
@@ -55,7 +56,7 @@ def get_connection():
         conn.close()
 
 #must be manually closed
-def get_connection_raw():
+def get_connection_raw() -> sqlite3.Connection:
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     
@@ -65,7 +66,7 @@ def get_connection_raw():
 # Database Initialization #
 ###########################
 
-def table_exists(conn, table_name: str) -> bool:
+def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
     row = conn.execute(
         """
         SELECT name
@@ -77,7 +78,7 @@ def table_exists(conn, table_name: str) -> bool:
     return row is not None
 
 
-def get_existing_columns(conn, table_name: str) -> dict[str, dict]:
+def get_existing_columns(conn: sqlite3.Connection, table_name: str) -> dict[str, dict[str, int | str | None]]:
     rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
     return {
         row["name"]: {
@@ -90,7 +91,7 @@ def get_existing_columns(conn, table_name: str) -> dict[str, dict]:
     }
 
 
-def ensure_table(conn, table: Table) -> None:
+def ensure_table(conn: sqlite3.Connection, table: Table) -> None:
     table_name = table.name
     if not table_exists(conn, table_name):
         print(f"Creating table: {table_name}")
