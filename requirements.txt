@@ -1,6 +1,10 @@
+argon2-cffi==25.1.0
+argon2-cffi-bindings==25.1.0
+cffi==2.0.0
 colorama==0.4.6
 iniconfig==2.3.0
 packaging==26.0
 pluggy==1.6.0
+pycparser==3.0
 Pygments==2.19.2
 pytest==9.0.2
