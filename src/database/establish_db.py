@@ -1,4 +1,5 @@
 import sqlite3
+import sys
 from contextlib import contextmanager
 from typing import Iterator
 from dataclasses import dataclass
@@ -9,6 +10,8 @@ DATABASE = "app.db"
 ############################
 # MODULAR SCHEMA REFERENCE #
 ############################
+
+SCHEMA_ALLOWED_CHARACTERS: str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_"
 
 #defines an SQL Column to be registered
 @dataclass(frozen=True, slots=True)
@@ -93,6 +96,9 @@ def get_existing_columns(conn: sqlite3.Connection, table_name: str) -> dict[str,
 
 def ensure_table(conn: sqlite3.Connection, table: Table) -> None:
     table_name = table.name
+    if(not all(char in SCHEMA_ALLOWED_CHARACTERS for char in table_name)):
+        raise ValueError(f"Invalid table name: {table_name!r}")
+    
     if not table_exists(conn, table_name):
         print(f"Creating table: {table_name}")
         conn.execute(table.create_sql())
@@ -101,6 +107,9 @@ def ensure_table(conn: sqlite3.Connection, table: Table) -> None:
     existing_columns = get_existing_columns(conn, table_name)
 
     for column in table.column_definitions():
+        if(not all(char in SCHEMA_ALLOWED_CHARACTERS for char in column.name)):
+            raise ValueError(f"Invalid column name: {column.name!r}")
+        
         if column.name not in existing_columns:
             print(f"    Adding missing column '{column.name}' to '{table_name}'")
             conn.execute(
@@ -141,5 +150,11 @@ def _import_table_modules(package_name: str = "database") -> None:
 
 
 if __name__ == "__main__":
+    src_path = str(Path(__file__).resolve().parents[1])
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+
+    from database import establish_db as database_module
+
     _import_table_modules()
-    ensure_schema()
+    database_module.ensure_schema()

@@ -21,7 +21,7 @@ register_table(
 ########################################
 
 register_table(
-    Table(name='session tokens',
+    Table(name='session_tokens',
           columns=(
               SQLColumn(name='token_id', attribute_list='INTEGER PRIMARY KEY AUTOINCREMENT'),
               
