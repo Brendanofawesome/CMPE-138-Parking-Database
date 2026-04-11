@@ -5,6 +5,9 @@ from typing import Iterator
 from dataclasses import dataclass
 from pathlib import Path #to check if the database exists
 
+from importlib import import_module
+from pkgutil import iter_modules
+
 DATABASE = "app.db"
 
 ############################
@@ -42,7 +45,7 @@ EXPECTED_SCHEMA: list[Table] = [] #stores schema (append using register_table())
 # register a table to the schema reference
 def register_table(table: Table) -> None:
     EXPECTED_SCHEMA.append(table)
-    
+
 
 ############################
 # Database Usage Functions #
@@ -62,7 +65,7 @@ def get_connection() -> Iterator[sqlite3.Connection]:
 def get_connection_raw() -> sqlite3.Connection:
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
-    
+
     return conn
 
 ###########################
@@ -96,7 +99,7 @@ def get_existing_columns(conn: sqlite3.Connection, table_name: str) -> dict[str,
 
 def ensure_table(conn: sqlite3.Connection, table: Table) -> None:
     table_name = table.name
-    if(not all(char in SCHEMA_ALLOWED_CHARACTERS for char in table_name)):
+    if not all(char in SCHEMA_ALLOWED_CHARACTERS for char in table_name):
         raise ValueError(f"Invalid table name: {table_name!r}")
     
     if not table_exists(conn, table_name):
@@ -107,7 +110,7 @@ def ensure_table(conn: sqlite3.Connection, table: Table) -> None:
     existing_columns = get_existing_columns(conn, table_name)
 
     for column in table.column_definitions():
-        if(not all(char in SCHEMA_ALLOWED_CHARACTERS for char in column.name)):
+        if not all(char in SCHEMA_ALLOWED_CHARACTERS for char in column.name):
             raise ValueError(f"Invalid column name: {column.name!r}")
         
         if column.name not in existing_columns:
@@ -138,8 +141,6 @@ def ensure_schema() -> None:
 
 #helper to grab the schema defined in ./tables/
 def _import_table_modules(package_name: str = "database") -> None:
-    from importlib import import_module
-    from pkgutil import iter_modules
     
     tables_path = Path(__file__).with_name("tables")
     package_prefix = f"{package_name}.tables"
@@ -150,11 +151,9 @@ def _import_table_modules(package_name: str = "database") -> None:
 
 
 if __name__ == "__main__":
-    src_path = str(Path(__file__).resolve().parents[1])
-    if src_path not in sys.path:
-        sys.path.insert(0, src_path)
-
-    from database import establish_db as database_module
+    SRC_PATH = str(Path(__file__).resolve().parents[1])
+    if SRC_PATH not in sys.path:
+        sys.path.insert(0, SRC_PATH)
 
     _import_table_modules()
-    database_module.ensure_schema()
+    ensure_schema()
