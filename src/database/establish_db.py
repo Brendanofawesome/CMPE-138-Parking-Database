@@ -1,13 +1,13 @@
 import sqlite3
 from contextlib import contextmanager
-from typing import Iterator
 from dataclasses import dataclass
-from pathlib import Path #to check if the database exists
+from pathlib import Path
+from typing import Iterator
 
 from importlib import import_module
 from pkgutil import iter_modules
 
-DATABASE = "app.db"
+DATABASE = str(Path(__file__).resolve().parents[2] / "app.db")
 
 ############################
 # MODULAR SCHEMA REFERENCE #
@@ -125,7 +125,7 @@ def ensure_schema() -> None:
     with get_connection() as conn:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA busy_timeout = 10000")
+        conn.execute("PRAGMA busy_timeout = 1000")
 
         for table in EXPECTED_SCHEMA:
             ensure_table(conn, table)
