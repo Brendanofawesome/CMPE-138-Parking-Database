@@ -167,7 +167,7 @@ def create_account() -> ResponseReturnValue:
 
 		if session_cookie is not None:
 			response = make_response(redirect(url_for("hello_world")))
-			session_cookie_name: str = current_app.config.get("SESSION_COOKIE_NAME", "session")
+			session_cookie_name: str = "session_id"
 			response.set_cookie(
 				session_cookie_name,
 				session_cookie,

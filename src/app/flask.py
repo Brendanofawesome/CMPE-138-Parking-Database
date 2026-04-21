@@ -1,6 +1,5 @@
 """helper to create and configure the flask application"""
 
-
 from __future__ import annotations
 
 import os
@@ -23,10 +22,10 @@ def register_pages(app: Flask) -> None:
     app.register_blueprint(create_account_bp)
 
 #runs when someone accesses a page
-def get_db() -> sqlite3.Connection:
+def get_db(app: Flask) -> sqlite3.Connection:
     db = g.get("current_db_conn")
     if db is None:
-        db_geter = g.get("GET_DATABASE")
+        db_geter = app.config.get("GET_DATABASE")
         if db_geter is not None:
             db = db_geter()
             g.current_db_conn = db
@@ -50,13 +49,15 @@ def create_app(get_connection: Callable[[], sqlite3.Connection]) -> Flask:
     )
 
     csrf.init_app(app) 
-    app.teardown_appcontext(close_db)
+    app.teardown_appcontext(close_db) #close db on exit
 
-    @app.before_request
+    @app.before_request #authenticate user before entering code
     def _prepare_request() -> None:
-        db = get_db()
-        session_cookie_name: str = app.config.get('SESSION_COOKIE_NAME', 'session')
+        db = get_db(app)
+        session_cookie_name: str = "session_id"
         g.current_user = load_current_user(db, request.cookies.get(session_cookie_name))
+        if g.current_user is not None:
+            app.logger.debug(f"authenticated user {g.current_user['user_id']} from cookie")
     
     register_pages(app)
 
