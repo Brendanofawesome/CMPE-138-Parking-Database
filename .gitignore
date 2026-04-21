@@ -226,3 +226,7 @@ __marimo__/
 
 #environment variables
 *.env
+
+
+#dont include tool outputs
+/tools/**/gen/
