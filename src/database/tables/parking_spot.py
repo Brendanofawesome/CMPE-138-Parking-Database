@@ -14,8 +14,7 @@ register_table(
             SQLColumn(name='loc_x_min', attribute_list='INTEGER NOT NULL'),
             SQLColumn(name='loc_x_max', attribute_list='INTEGER NOT NULL'),
             SQLColumn(name='box_y_min', attribute_list='INTEGER NOT NULL'),
-            SQLColumn(name='box_y_max', attribute_list='INTEGER NOT NULL'),
-            SQLColumn(name='in_use', attribute_list="AS (SELECT EXISTS (SELECT 1 FROM fees WHERE expiry_time > unixepoch()))")
+            SQLColumn(name='box_y_max', attribute_list='INTEGER NOT NULL')
         ),
         extra_constraints=("FOREIGN KEY (location_id) REFERENCES locations(location_id) ON DELETE CASCADE",
                            "PRIMARY KEY (location_id, spot_number)") 
