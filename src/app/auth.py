@@ -67,8 +67,8 @@ def create_user(db: sqlite3.Connection, username: str, password: bytes, phone_nu
     return _issue_session_cookie(db, cursor.lastrowid) # pyright: ignore[reportArgumentType]
 
 #requires auth!
-def _issue_session_cookie(db: sqlite3.Connection, user_id: int) -> str | None:
-    if not db:
+def _issue_session_cookie(db: sqlite3.Connection, user_id: int | None) -> str | None:
+    if not db or not user_id:
         return None
     
     expires_at = int(time()) + SESSION_DURATION_SECONDS
