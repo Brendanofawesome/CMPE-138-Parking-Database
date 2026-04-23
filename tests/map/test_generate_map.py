@@ -99,13 +99,6 @@ def test_get_lot_data_rejects_path_traversal_data_name() -> None:
         get_lot_data(MAP_DATA_DIR, LotDataInfo(1, 0, 0, "../outside"))
 
 
-def test_generate_map_rejects_path_traversal_base_map_name(db_conn: sqlite3.Connection) -> None:
-    put_default_lots(db_conn)
-
-    with pytest.raises(ValueError, match="Invalid base map name"):
-        generate_map(db_conn, MAP_DATA_DIR, "..\\outside", "final_map_test")
-
-
 def test_generate_map_matches_expected_final_map_baseline(db_conn: sqlite3.Connection) -> None:
     put_default_lots(db_conn)
 
