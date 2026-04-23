@@ -108,3 +108,31 @@ def test_session_cookie_is_verified_on_followup_request(auth_app):
 
     assert response.status_code == 302
     assert response.headers["Location"] == "/"
+
+
+def test_logout_revokes_session_token_and_clears_cookie(auth_app):
+    app, db_path = auth_app
+
+    with closing(sqlite3.connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        session_cookie = create_user(conn, "logout_user", b"password123", "555-0133")
+        token_count = conn.execute("SELECT COUNT(*) AS count FROM session_tokens").fetchone()["count"]
+
+    assert session_cookie is not None
+    assert token_count == 1
+
+    with app.test_client() as client:
+        client.set_cookie("session_id", session_cookie)
+        response = client.get("/logout", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/login"
+    set_cookie_header = response.headers.get("Set-Cookie") or ""
+    assert "session_id=" in set_cookie_header
+    assert "Max-Age=0" in set_cookie_header
+
+    with closing(sqlite3.connect(db_path)) as conn:
+        conn.row_factory = sqlite3.Row
+        remaining = conn.execute("SELECT COUNT(*) AS count FROM session_tokens").fetchone()["count"]
+
+    assert remaining == 0

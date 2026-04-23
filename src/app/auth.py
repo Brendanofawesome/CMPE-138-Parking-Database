@@ -122,3 +122,22 @@ def load_current_user(db: sqlite3.Connection, cookie_value: str | None) -> sqlit
         """,
         (session_hash, now),
     ).fetchone()
+
+
+def revoke_session(db: sqlite3.Connection, cookie_value: str | None) -> bool:
+    if not cookie_value or not db:
+        return False
+
+    try:
+        parsed_cookie = _decode_cookie_value(cookie_value)
+    except (ValueError, UnicodeError):
+        return False
+
+    session_hash = _hash_session_id(parsed_cookie)
+    cursor = db.execute(
+        "DELETE FROM session_tokens WHERE session_id_hash = ?",
+        (session_hash,),
+    )
+    db.commit()
+
+    return cursor.rowcount > 0

@@ -72,6 +72,7 @@ def test_main_page_shows_username_and_spot_metadata_when_logged_in(main_page_app
 
     assert response.status_code == 200
     assert b"Signed in as map_user" in response.data
+    assert b"Logout" in response.data
     assert b'"spot_id": "A1"' in response.data
     assert b'"location_name": "Lot 1"' in response.data
 

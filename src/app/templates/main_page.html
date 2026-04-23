@@ -13,6 +13,10 @@
 		<nav class="topbar-auth" aria-label="Authentication">
 			{% if is_logged_in %}
 				<span class="username">Signed in as {{ username }}</span>
+                <form action="{{ url_for('login.logout') }}" method="POST">
+					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <input type="submit" value="Logout">
+                </form> 
 			{% else %}
 				<a class="app-link" href="{{ url_for('login.login') }}">Login</a>
 				<a class="app-link" href="{{ url_for('create_account.create_account') }}">Create Account</a>

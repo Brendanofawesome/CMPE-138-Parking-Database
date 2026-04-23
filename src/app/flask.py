@@ -64,4 +64,6 @@ def create_app(get_connection: Callable[[], sqlite3.Connection]) -> Flask:
     
     register_pages(app)
 
+    app.add_url_rule("/", endpoint="home", view_func=app.view_functions["main_page.main_page"])
+
     return app
