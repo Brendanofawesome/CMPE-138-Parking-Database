@@ -30,6 +30,8 @@ register_table(
               
               SQLColumn(name='expires_at', attribute_list='INTEGER NOT NULL')
           ),
-          extra_constraints=("FOREIGN KEY (user_id) REFERENCES user(user_id)",)
+          extra_constraints=(
+              SQLColumn(name='fk_session_tokens_user', attribute_list='FOREIGN KEY (user_id) REFERENCES user(user_id)'),
+          )
     )
 )

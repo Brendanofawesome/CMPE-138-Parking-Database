@@ -26,18 +26,32 @@ class SQLColumn:
 class Table:
     name: str
     columns: tuple[SQLColumn, ...] = ()
-    extra_constraints: tuple[str, ...] = ()
+    primary_key: tuple[str, ...] | None = None
+    extra_constraints: tuple[SQLColumn, ...] = ()
 
-    def create_sql(self) -> str:
+    def create_sql(self, include_extra_constraints: bool = False, table_name: str | None = None) -> str:
+        create_table_name = table_name if table_name is not None else self.name
         parts = [
             f"{column.name} {column.attribute_list}"
             for column in self.columns
         ]
-        parts.extend(self.extra_constraints)
-        return f"CREATE TABLE IF NOT EXISTS {self.name} ({', '.join(parts)})"
+
+        if self.primary_key:
+            parts.append(f"PRIMARY KEY ({', '.join(self.primary_key)})")
+
+        if include_extra_constraints:
+            parts.extend(
+                f"CONSTRAINT {constraint.name} {constraint.attribute_list}"
+                for constraint in self.extra_constraints
+            )
+
+        return f"CREATE TABLE IF NOT EXISTS {create_table_name} ({', '.join(parts)})"
 
     def column_definitions(self) -> tuple[SQLColumn, ...]:
         return self.columns
+
+    def constraint_definitions(self) -> tuple[SQLColumn, ...]:
+        return self.extra_constraints
 
 EXPECTED_SCHEMA: list[Table] = [] #stores schema (append using register_table())
 
@@ -100,6 +114,11 @@ def ensure_table(conn: sqlite3.Connection, table: Table) -> None:
     table_name = table.name
     if not all(char in SCHEMA_ALLOWED_CHARACTERS for char in table_name):
         raise ValueError(f"Invalid table name: {table_name!r}")
+
+    if table.primary_key is not None:
+        for primary_key_column in table.primary_key:
+            if not all(char in SCHEMA_ALLOWED_CHARACTERS for char in primary_key_column):
+                raise ValueError(f"Invalid primary key column name: {primary_key_column!r}")
     
     if not table_exists(conn, table_name):
         print(f"Creating table: {table_name}")
@@ -119,6 +138,64 @@ def ensure_table(conn: sqlite3.Connection, table: Table) -> None:
             )
 
 
+def get_table_sql(conn: sqlite3.Connection, table_name: str) -> str:
+    row = conn.execute(
+        """
+        SELECT sql
+        FROM sqlite_schema
+        WHERE type = 'table' AND name = ?
+        """,
+        (table_name,),
+    ).fetchone()
+    return row["sql"] if row is not None and row["sql"] is not None else ""
+
+
+def constraint_exists(conn: sqlite3.Connection, table_name: str, constraint_name: str) -> bool:
+    table_sql = get_table_sql(conn, table_name)
+    return f"CONSTRAINT {constraint_name}" in table_sql
+
+
+def _rebuild_table_with_constraints(conn: sqlite3.Connection, table: Table) -> None:
+    temp_table_name = f"__tmp_{table.name}"
+    column_names = [column.name for column in table.column_definitions()]
+    column_list = ", ".join(column_names)
+
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        conn.execute(f"DROP TABLE IF EXISTS {temp_table_name}")
+        conn.execute(table.create_sql(include_extra_constraints=True, table_name=temp_table_name))
+        conn.execute(
+            f"INSERT INTO {temp_table_name} ({column_list}) SELECT {column_list} FROM {table.name}"
+        )
+        conn.execute(f"DROP TABLE {table.name}")
+        conn.execute(f"ALTER TABLE {temp_table_name} RENAME TO {table.name}")
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
+
+
+def add_extra_constraints(conn: sqlite3.Connection, table: Table) -> None:
+    if not table.extra_constraints:
+        return
+
+    missing_constraint_names: list[str] = []
+    for constraint in table.constraint_definitions():
+        if not all(char in SCHEMA_ALLOWED_CHARACTERS for char in constraint.name):
+            raise ValueError(f"Invalid constraint name: {constraint.name!r}")
+
+        if not constraint_exists(conn, table.name, constraint.name):
+            missing_constraint_names.append(constraint.name)
+
+    if not missing_constraint_names:
+        return
+
+    try:
+        _rebuild_table_with_constraints(conn, table)
+    except sqlite3.OperationalError as error:
+        print(f"Failed to add constraints on '{table.name}': {', '.join(missing_constraint_names)}")
+        print("Foreign key references missing column")
+        print(f"SQLite error: {error}")
+
+
 def ensure_schema() -> None:
     db_file_created = Path(DATABASE).exists()
 
@@ -129,6 +206,9 @@ def ensure_schema() -> None:
 
         for table in EXPECTED_SCHEMA:
             ensure_table(conn, table)
+
+        for table in EXPECTED_SCHEMA:
+            add_extra_constraints(conn, table)
 
         conn.commit()
 
