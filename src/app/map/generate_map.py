@@ -73,6 +73,14 @@ def put_spots_in_db(connection: sqlite3.Connection, lot_data: LotDataInfo, spot_
             """
             INSERT INTO parking_spot (location_id, spot_id, active, location_description, type, box_x_min, box_x_max, box_y_min, box_y_max)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(location_id, spot_id) DO UPDATE SET
+                active=excluded.active,
+                location_description=excluded.location_description,
+                type=excluded.type,
+                box_x_min=excluded.box_x_min,
+                box_x_max=excluded.box_x_max,
+                box_y_min=excluded.box_y_min,
+                box_y_max=excluded.box_y_max
             """,
             (
                 lot_data.location_id,
@@ -131,6 +139,13 @@ def put_default_lots(connection: sqlite3.Connection) -> None:
             """
             INSERT INTO location (lot_name, manager, manager_contact, cost_cents, x_coordinate, y_coordinate, data_name)
             VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(data_name) DO UPDATE SET
+                lot_name=excluded.lot_name,
+                manager=excluded.manager,
+                manager_contact=excluded.manager_contact,
+                cost_cents=excluded.cost_cents,
+                x_coordinate=excluded.x_coordinate,
+                y_coordinate=excluded.y_coordinate
             """,
             (
                 f"Lot {lot.location_id}",

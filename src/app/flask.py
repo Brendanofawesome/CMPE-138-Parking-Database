@@ -18,6 +18,9 @@ from .auth import load_current_user
 def register_pages(app: Flask) -> None:
     from app.pages.login import login_bp
     from app.pages.create_account import create_account_bp
+    from app.pages.main_page import main_page_bp
+
+    app.register_blueprint(main_page_bp)
     app.register_blueprint(login_bp)
     app.register_blueprint(create_account_bp)
 
@@ -60,9 +63,5 @@ def create_app(get_connection: Callable[[], sqlite3.Connection]) -> Flask:
             app.logger.debug(f"authenticated user {g.current_user['user_id']} from cookie")
     
     register_pages(app)
-
-    @app.route("/")
-    def hello_world() -> str:
-        return '<p>Hello, World! Visit <a href="/login">/login</a> to sign in.</p>'
 
     return app

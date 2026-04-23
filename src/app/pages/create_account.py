@@ -147,7 +147,7 @@ def create_account() -> ResponseReturnValue:
 	error_message = ""
 
 	if g.get("current_user") is not None:
-		return redirect(url_for("hello_world"))
+		return redirect(url_for("main_page.main_page"))
 
 	if form.validate_on_submit():
 		db = g.get("current_db_conn")
@@ -166,7 +166,7 @@ def create_account() -> ResponseReturnValue:
 		)
 
 		if session_cookie is not None:
-			response = make_response(redirect(url_for("hello_world")))
+			response = make_response(redirect(url_for("main_page.main_page")))
 			session_cookie_name: str = "session_id"
 			response.set_cookie(
 				session_cookie_name,

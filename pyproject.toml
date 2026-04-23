@@ -9,6 +9,9 @@ markers = [
 ]
 norecursedirs = [".git", "venv", "build", "dist"]
 
+[tool.coverage.run]
+omit = ["src/main.py"]
+
 [tool.pylint.main]
 jobs = 0
 
