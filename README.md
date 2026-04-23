@@ -1,3 +1,4 @@
 # CMPE-138-Parking-Database
 
-Run src/main.py to use!
+to debug, run: src/serve_debug.py
+for production, run: gunicorn --chdir src --bind 127.0.0.1:8000 serve_wsgi:app --workers 2 --threads 4
