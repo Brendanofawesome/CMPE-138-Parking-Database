@@ -27,12 +27,15 @@ def register_pages(app: Flask) -> None:
 
 #runs when someone accesses a page
 def get_db(app: Flask) -> sqlite3.Connection:
-    db = g.get("current_db_conn")
+    db: sqlite3.Connection | None = g.get("current_db_conn")
     if db is None:
         db_geter = app.config.get("GET_DATABASE")
-        if db_geter is not None:
-            db = db_geter()
-            g.current_db_conn = db
+        if db_geter is None:
+            raise RuntimeError("GET_DATABASE function not found in app config")
+        db = db_geter()
+        g.current_db_conn = db
+    if not isinstance(db, sqlite3.Connection):
+        raise RuntimeError("GET_DATABASE function did not return a sqlite3.Connection")
     return db
 
 #runs when someone closes a page

@@ -113,7 +113,7 @@ def load_current_user(db: sqlite3.Connection, cookie_value: str | None) -> sqlit
     session_hash = _hash_session_id(parsed_cookie)
     now = int(time())
 
-    return db.execute(
+    row: sqlite3.Row | None = db.execute(
         """
         SELECT user_id, session_id_hash, expires_at
         FROM session_tokens
@@ -122,6 +122,7 @@ def load_current_user(db: sqlite3.Connection, cookie_value: str | None) -> sqlit
         """,
         (session_hash, now),
     ).fetchone()
+    return row
 
 
 def revoke_session(db: sqlite3.Connection, cookie_value: str | None) -> bool:
