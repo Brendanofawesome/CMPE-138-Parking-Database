@@ -10,6 +10,6 @@ def initialize_app_data() -> None:
         put_default_lots(conn)
         generate_map(conn, map_data_dir, "map_base", "final_map")
         conn.commit()
-        
+
 if __name__ == "__main__":
     initialize_app_data()

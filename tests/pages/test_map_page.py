@@ -13,8 +13,8 @@ from database import establish_db
 
 
 @pytest.fixture()
-def main_page_app(tmp_path, monkeypatch):
-    db_path = tmp_path / "main_page.db"
+def map_app(tmp_path, monkeypatch):
+    db_path = tmp_path / "map.db"
     monkeypatch.setattr(establish_db, "DATABASE", str(db_path))
     establish_db.ensure_schema()
 
@@ -46,8 +46,8 @@ def main_page_app(tmp_path, monkeypatch):
     return app, db_path
 
 
-def test_main_page_shows_login_links_when_logged_out(main_page_app):
-    app, _db_path = main_page_app
+def test_map_shows_login_links_when_logged_out(map_app):
+    app, _db_path = map_app
 
     with app.test_client() as client:
         response = client.get("/", follow_redirects=False)
@@ -57,8 +57,8 @@ def test_main_page_shows_login_links_when_logged_out(main_page_app):
     assert b"Create Account" in response.data
 
 
-def test_main_page_shows_username_and_spot_metadata_when_logged_in(main_page_app):
-    app, db_path = main_page_app
+def test_map_shows_username_and_spot_metadata_when_logged_in(map_app):
+    app, db_path = map_app
 
     with closing(sqlite3.connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
@@ -77,8 +77,8 @@ def test_main_page_shows_username_and_spot_metadata_when_logged_in(main_page_app
     assert b'"location_name": "Lot 1"' in response.data
 
 
-def test_final_map_image_route_serves_png(main_page_app):
-    app, _db_path = main_page_app
+def test_final_map_image_route_serves_png(map_app):
+    app, _db_path = map_app
 
     with app.test_client() as client:
         response = client.get("/map/final-map", follow_redirects=False)

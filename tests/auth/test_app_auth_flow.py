@@ -123,10 +123,10 @@ def test_logout_revokes_session_token_and_clears_cookie(auth_app):
 
     with app.test_client() as client:
         client.set_cookie("session_id", session_cookie)
-        response = client.get("/logout", follow_redirects=False)
+        response = client.post("/logout", follow_redirects=False)
 
     assert response.status_code == 302
-    assert response.headers["Location"] == "/login"
+    assert response.headers["Location"] == "/"
     set_cookie_header = response.headers.get("Set-Cookie") or ""
     assert "session_id=" in set_cookie_header
     assert "Max-Age=0" in set_cookie_header

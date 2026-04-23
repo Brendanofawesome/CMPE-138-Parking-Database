@@ -8,17 +8,14 @@ import sqlite3
 from flask import Blueprint, current_app, g, render_template, send_file, url_for
 from flask.typing import ResponseReturnValue
 
-main_page_bp = Blueprint("main_page", __name__)
+map_bp = Blueprint("map", __name__)
 
 
 def _final_map_path() -> Path:
     return Path(__file__).resolve().parents[1] / "map" / "map_data" / "final_map.png"
 
-
-
-
-@main_page_bp.route("/")
-def main_page() -> ResponseReturnValue:
+@map_bp.route("/")
+def map_page() -> ResponseReturnValue:
     db: sqlite3.Connection | None = g.get("current_db_conn")
     if db is None:
         db_getter = current_app.config.get("GET_DATABASE")
@@ -73,15 +70,15 @@ def main_page() -> ResponseReturnValue:
             is_logged_in = False
 
     return render_template(
-        "main_page.html",
-        map_url=url_for("main_page.final_map_image"),
+        "map.html",
+        map_url=url_for("map.final_map_image"),
         spots=spots,
         username=username,
         is_logged_in=is_logged_in,
     )
 
 
-@main_page_bp.route("/map/final-map")
+@map_bp.route("/map/final-map")
 def final_map_image() -> ResponseReturnValue:
     map_path = _final_map_path()
     return send_file(map_path, mimetype="image/png")

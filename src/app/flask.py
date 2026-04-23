@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import os
 import secrets
-import sqlite3 #for typing and member functions
+import sqlite3  # for typing and member functions
 from typing import Callable
 
 from flask import Flask, g, request
 from flask_wtf.csrf import CSRFProtect
+
+#import all the pages
+from app.pages.create_account import create_account_bp
+from app.pages.login import login_bp
+from app.pages.map import map_bp
 
 csrf: CSRFProtect = CSRFProtect()
 
@@ -16,11 +21,7 @@ from .auth import load_current_user
 
 #register all your pages here
 def register_pages(app: Flask) -> None:
-    from app.pages.login import login_bp
-    from app.pages.create_account import create_account_bp
-    from app.pages.main_page import main_page_bp
-
-    app.register_blueprint(main_page_bp)
+    app.register_blueprint(map_bp)
     app.register_blueprint(login_bp)
     app.register_blueprint(create_account_bp)
 
@@ -51,19 +52,19 @@ def create_app(get_connection: Callable[[], sqlite3.Connection]) -> Flask:
         WTF_CSRF_TIME_LIMIT=None,
     )
 
-    csrf.init_app(app) 
-    app.teardown_appcontext(close_db) #close db on exit
+    csrf.init_app(app)
+    app.teardown_appcontext(close_db)  # close db on exit
 
-    @app.before_request #authenticate user before entering code
+    @app.before_request  # authenticate user before entering code
     def _prepare_request() -> None:
         db = get_db(app)
         session_cookie_name: str = "session_id"
         g.current_user = load_current_user(db, request.cookies.get(session_cookie_name))
         if g.current_user is not None:
-            app.logger.debug(f"authenticated user {g.current_user['user_id']} from cookie")
+            app.logger.debug("authenticated user %s from cookie", g.current_user["user_id"])
     
     register_pages(app)
 
-    app.add_url_rule("/", endpoint="home", view_func=app.view_functions["main_page.main_page"])
+    app.add_url_rule("/", endpoint="home", view_func=app.view_functions["map.map_page"])
 
     return app

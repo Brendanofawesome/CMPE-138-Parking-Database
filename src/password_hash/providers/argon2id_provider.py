@@ -32,7 +32,7 @@ class Argon2IdProvider(AbstractPasswordHasher):
         return self.get_hash_with_salt(secret, salt)
 
     def get_hash_with_salt(self, secret: bytes, salt: bytes) -> HashInfo:
-        if(len(salt) == 0):
+        if len(salt) == 0:
             salt = self.default_salt
         hash_result = low_level.hash_secret_raw(
             secret,

@@ -35,10 +35,10 @@ def authenticate_user(db: sqlite3.Connection, username: str, password: bytes) ->
         return None
     
     hasher = hash_interface.password_hash_providers.get(row["hash_algorithm"], None)
-    if(hasher is None):
+    if hasher is None:
         return None
 
-    if(hasher.verify(password, row["password_hash"], row["salt"]) == True):
+    if hasher.verify(password, row["password_hash"], row["salt"]):
         return _issue_session_cookie(db, row["user_id"])
     
     return None
@@ -83,7 +83,7 @@ def _issue_session_cookie(db: sqlite3.Connection, user_id: int | None) -> str | 
             "SELECT 1 FROM session_tokens WHERE session_id_hash = ? LIMIT 1",
             (token,),
         ).fetchone()
-        if(check is None):
+        if check is None:
             #put it in the database
             db.execute(
                 """
