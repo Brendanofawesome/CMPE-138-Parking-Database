@@ -5,7 +5,7 @@
     --special: rgba(139, 92, 246, 0.45);
 }
 
-body.main-page {
+body.map-page {
     height: 100vh;
     display: flex;
     flex-direction: column;
