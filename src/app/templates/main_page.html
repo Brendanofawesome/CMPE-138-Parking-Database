@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Team Awesome!</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}" />
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/main_page.css') }}" />
+</head>
+<body class="main-page">
+	<header class="topbar">
+		<p class="topbar-title app-title section-title">CMPE Parking</p>
+		<nav class="topbar-auth" aria-label="Authentication">
+			{% if is_logged_in %}
+				<span class="username">Signed in as {{ username }}</span>
+			{% else %}
+				<a class="app-link" href="{{ url_for('login.login') }}">Login</a>
+				<a class="app-link" href="{{ url_for('create_account.create_account') }}">Create Account</a>
+			{% endif %}
+		</nav>
+	</header>
+
+	<main class="map-shell">
+		<section class="map-viewport" id="mapViewport" aria-label="Interactive parking map">
+			<div class="map-content" id="mapContent">
+				<img
+					id="mapImage"
+					class="map-image"
+					src="{{ map_url }}"
+					alt="Campus parking map"
+					draggable="false"
+				/>
+				<svg id="spotOverlay" class="spot-overlay" aria-hidden="true"></svg>
+			</div>
+			<p class="notice">Scroll to zoom. Drag to pan.</p>
+			<div id="spotTooltip" class="spot-tooltip" role="status" aria-live="polite"></div>
+		</section>
+	</main>
+
+	<footer class="bottom-bar">
+		<p class="bottom-title app-title section-title">Parking Map</p>
+		<div class="legend" aria-label="Parking type legend">
+			<span class="chip"><span class="swatch" style="background: var(--ev);"></span>EV</span>
+			<span class="chip"><span class="swatch" style="background: var(--regular);"></span>Regular</span>
+			<span class="chip"><span class="swatch" style="background: var(--handicap);"></span>Handicap</span>
+			<span class="chip"><span class="swatch" style="background: var(--special);"></span>Special</span>
+		</div>
+	</footer>
+
+	<script>
+		const spots = {{ spots | tojson }};
+		const viewport = document.getElementById("mapViewport");
+		const content = document.getElementById("mapContent");
+		const image = document.getElementById("mapImage");
+		const overlay = document.getElementById("spotOverlay");
+		const tooltip = document.getElementById("spotTooltip");
+
+		const state = {
+			scale: 1,
+			minScale: 0.6,
+			maxScale: 5,
+			tx: 0,
+			ty: 0,
+			dragging: false,
+			dragStartX: 0,
+			dragStartY: 0,
+			dragInitialTx: 0,
+			dragInitialTy: 0,
+			mapWidth: 0,
+			mapHeight: 0,
+		};
+
+		function normalizeSpotType(typeValue) {
+			const raw = String(typeValue || "").toLowerCase();
+			switch (raw) {
+				case "ev":
+					return "ev";
+				case "handicap":
+					return "handicap";
+				case "regular":
+					return "regular";
+				default:
+					return "special";
+			}
+		}
+
+		function buildOverlay() {
+			overlay.innerHTML = "";
+			for (const spot of spots) {
+				const x = Number(spot.box_x_min);
+				const y = Number(spot.box_y_min);
+				const width = Number(spot.box_x_max) - Number(spot.box_x_min);
+				const height = Number(spot.box_y_max) - Number(spot.box_y_min);
+
+				const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+				rect.setAttribute("x", String(x));
+				rect.setAttribute("y", String(y));
+				rect.setAttribute("width", String(Math.max(width, 1)));
+				rect.setAttribute("height", String(Math.max(height, 1)));
+				rect.setAttribute("class", "spot " + normalizeSpotType(spot.type));
+				rect.dataset.spotId = String(spot.spot_id || "Unknown");
+				rect.dataset.locationName = String(spot.location_name || "Unknown");
+				rect.dataset.type = String(spot.type || "");
+
+				rect.addEventListener("pointerenter", (event) => {
+					const target = event.currentTarget;
+					const rawType = target.dataset.type || "";
+					target.classList.add("hovered");
+					tooltip.textContent = `Spot ${target.dataset.spotId} | ${target.dataset.locationName} | ${rawType}`;
+					tooltip.style.opacity = "1";
+				});
+
+				rect.addEventListener("pointermove", (event) => {
+					const rectBounds = viewport.getBoundingClientRect();
+					tooltip.style.left = `${event.clientX - rectBounds.left}px`;
+					tooltip.style.top = `${event.clientY - rectBounds.top}px`;
+				});
+
+				rect.addEventListener("pointerleave", (event) => {
+					const target = event.currentTarget;
+					target.classList.remove("hovered");
+					tooltip.style.opacity = "0";
+				});
+
+				overlay.appendChild(rect);
+			}
+		}
+
+		function clampTranslation(nextTx, nextTy, nextScale) {
+			const viewWidth = viewport.clientWidth;
+			const viewHeight = viewport.clientHeight;
+			const scaledWidth = state.mapWidth * nextScale;
+			const scaledHeight = state.mapHeight * nextScale;
+
+			let minX;
+			let maxX;
+			if (scaledWidth <= viewWidth) {
+				minX = (viewWidth - scaledWidth) / 2;
+				maxX = minX;
+			} else {
+				minX = viewWidth - scaledWidth;
+				maxX = 0;
+			}
+
+			let minY;
+			let maxY;
+			if (scaledHeight <= viewHeight) {
+				minY = (viewHeight - scaledHeight) / 2;
+				maxY = minY;
+			} else {
+				minY = viewHeight - scaledHeight;
+				maxY = 0;
+			}
+
+			return {
+				tx: Math.min(maxX, Math.max(minX, nextTx)),
+				ty: Math.min(maxY, Math.max(minY, nextTy)),
+			};
+		}
+
+		function renderTransform() {
+			const clamped = clampTranslation(state.tx, state.ty, state.scale);
+			state.tx = clamped.tx;
+			state.ty = clamped.ty;
+			content.style.transform = `translate(${state.tx}px, ${state.ty}px) scale(${state.scale})`;
+		}
+
+		function zoomAt(clientX, clientY, zoomFactor) {
+			const rect = viewport.getBoundingClientRect();
+			const x = clientX - rect.left;
+			const y = clientY - rect.top;
+
+			const oldScale = state.scale;
+			const targetScale = Math.min(state.maxScale, Math.max(state.minScale, oldScale * zoomFactor));
+			if (targetScale === oldScale) {
+				return;
+			}
+
+			const mapX = (x - state.tx) / oldScale;
+			const mapY = (y - state.ty) / oldScale;
+			state.scale = targetScale;
+			state.tx = x - mapX * state.scale;
+			state.ty = y - mapY * state.scale;
+
+			renderTransform();
+		}
+
+		function fitMapInitially() {
+			if (state.mapWidth === 0 || state.mapHeight === 0) {
+				return;
+			}
+
+			const scaleX = viewport.clientWidth / state.mapWidth;
+			const scaleY = viewport.clientHeight / state.mapHeight;
+			state.scale = Math.min(1, Math.max(state.minScale, Math.min(scaleX, scaleY)));
+			state.tx = 0;
+			state.ty = 0;
+			renderTransform();
+		}
+
+		viewport.addEventListener("wheel", (event) => {
+			event.preventDefault();
+			const zoomFactor = event.deltaY < 0 ? 1.1 : 0.9;
+			zoomAt(event.clientX, event.clientY, zoomFactor);
+		}, { passive: false });
+
+		viewport.addEventListener("pointerdown", (event) => {
+			state.dragging = true;
+			state.dragStartX = event.clientX;
+			state.dragStartY = event.clientY;
+			state.dragInitialTx = state.tx;
+			state.dragInitialTy = state.ty;
+			viewport.classList.add("dragging");
+			viewport.setPointerCapture(event.pointerId);
+			overlay.querySelectorAll(".spot.hovered").forEach((el) => el.classList.remove("hovered"));
+			tooltip.style.opacity = "0";
+		});
+
+		viewport.addEventListener("pointermove", (event) => {
+			if (!state.dragging) {
+				return;
+			}
+
+			const dx = event.clientX - state.dragStartX;
+			const dy = event.clientY - state.dragStartY;
+			state.tx = state.dragInitialTx + dx;
+			state.ty = state.dragInitialTy + dy;
+			tooltip.style.opacity = "0";
+			renderTransform();
+		});
+
+		function endDrag(event) {
+			if (!state.dragging) {
+				return;
+			}
+			state.dragging = false;
+			viewport.classList.remove("dragging");
+			if (viewport.hasPointerCapture(event.pointerId)) {
+				viewport.releasePointerCapture(event.pointerId);
+			}
+		}
+
+		viewport.addEventListener("pointerup", endDrag);
+		viewport.addEventListener("pointercancel", endDrag);
+
+		window.addEventListener("resize", renderTransform);
+
+		image.addEventListener("load", () => {
+			state.mapWidth = image.naturalWidth;
+			state.mapHeight = image.naturalHeight;
+			content.style.width = `${state.mapWidth}px`;
+			content.style.height = `${state.mapHeight}px`;
+			overlay.setAttribute("viewBox", `0 0 ${state.mapWidth} ${state.mapHeight}`);
+			overlay.setAttribute("width", String(state.mapWidth));
+			overlay.setAttribute("height", String(state.mapHeight));
+			buildOverlay();
+			fitMapInitially();
+		});
+	</script>
+</body>
+</html>

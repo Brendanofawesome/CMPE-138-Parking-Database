@@ -1,0 +1,199 @@
+:root {
+    --ev: rgba(245, 158, 11, 0.45);
+    --regular: rgba(148, 163, 184, 0.45);
+    --handicap: rgba(30, 144, 255, 0.45);
+    --special: rgba(139, 92, 246, 0.45);
+}
+
+body.main-page {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+    z-index: 2;
+}
+
+.topbar-auth {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.topbar-auth a {
+    background: var(--brand-primary-soft);
+    border: 1px solid #86efac;
+    border-radius: 8px;
+    padding: 6px 10px;
+}
+
+.topbar-auth a:hover {
+    background: var(--brand-primary-soft-hover);
+}
+
+.topbar-auth .username {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.bottom-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 20px rgba(15, 23, 42, 0.08);
+    z-index: 2;
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.map-shell {
+    flex: 1;
+    padding: 0;
+    min-height: 0;
+}
+
+.map-viewport {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border: 0;
+    background: #dde3ea;
+    border-radius: 0;
+    overflow: hidden;
+    position: relative;
+    touch-action: none;
+    cursor: grab;
+}
+
+.map-viewport.dragging {
+    cursor: grabbing;
+}
+
+.map-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+    user-select: none;
+}
+
+.map-image {
+    display: block;
+    max-width: none;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.spot-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: auto;
+}
+
+.spot {
+    stroke-width: 2;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.spot.hovered {
+    stroke-width: 6;
+    opacity: 1;
+    filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.18));
+}
+
+.spot.ev {
+    fill: var(--ev);
+    stroke: rgba(217, 119, 6, 0.95);
+}
+
+.spot.regular {
+    fill: var(--regular);
+    stroke: rgba(71, 85, 105, 0.95);
+}
+
+.spot.handicap {
+    fill: var(--handicap);
+    stroke: rgba(30, 144, 255, 0.95);
+}
+
+.spot.special {
+    fill: var(--special);
+    stroke: rgba(124, 58, 237, 0.95);
+}
+
+.notice {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    background: rgba(17, 24, 39, 0.82);
+    color: #f8fafc;
+    font-size: 0.82rem;
+    border-radius: 8px;
+    padding: 7px 10px;
+    pointer-events: none;
+}
+
+.spot-tooltip {
+    position: absolute;
+    transform: translate(12px, 12px);
+    background: rgba(15, 23, 42, 0.92);
+    color: #f8fafc;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    white-space: nowrap;
+    z-index: 3;
+}
+
+@media (max-width: 700px) {
+    .topbar,
+    .bottom-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .topbar-auth {
+        flex-wrap: wrap;
+    }
+}
