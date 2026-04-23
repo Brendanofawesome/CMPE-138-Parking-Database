@@ -41,7 +41,7 @@ def create_account() -> ResponseReturnValue:
 	if g.get("current_user") is not None:
 		return redirect(url_for("home"))
 
-	if form.validate_on_submit():
+	if request.method == "POST" and form.validate_on_submit():
 		db = g.get("current_db_conn")
 		if db is None:
 			db_getter = current_app.config.get("GET_DATABASE")
