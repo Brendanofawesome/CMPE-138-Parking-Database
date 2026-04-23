@@ -57,9 +57,10 @@ def test_ensure_schema_creates_database_and_table(isolated_db_schema):
         establish_db.Table(
             name="example_table",
             columns=(
-                establish_db.SQLColumn("id", "INTEGER PRIMARY KEY"),
+                establish_db.SQLColumn("id", "INTEGER"),
                 establish_db.SQLColumn("name", "TEXT NOT NULL"),
             ),
+            primary_key=("id",),
         )
     )
 
@@ -73,9 +74,10 @@ def test_ensure_schema_adds_new_column_to_existing_table(isolated_db_schema):
     initial_schema = establish_db.Table(
         name="example_table",
         columns=(
-            establish_db.SQLColumn("id", "INTEGER PRIMARY KEY"),
+            establish_db.SQLColumn("id", "INTEGER"),
             establish_db.SQLColumn("name", "TEXT NOT NULL"),
         ),
+        primary_key=("id",),
     )
     establish_db.register_table(initial_schema)
     establish_db.ensure_schema()
@@ -84,10 +86,11 @@ def test_ensure_schema_adds_new_column_to_existing_table(isolated_db_schema):
     expanded_schema = establish_db.Table(
         name="example_table",
         columns=(
-            establish_db.SQLColumn("id", "INTEGER PRIMARY KEY"),
+            establish_db.SQLColumn("id", "INTEGER"),
             establish_db.SQLColumn("name", "TEXT NOT NULL"),
             establish_db.SQLColumn("status", "TEXT DEFAULT 'ACTIVE'"),
         ),
+        primary_key=("id",),
     )
     establish_db.register_table(expanded_schema)
 

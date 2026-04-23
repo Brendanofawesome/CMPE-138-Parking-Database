@@ -16,7 +16,7 @@ class parking_spot(NamedTuple):
 
 square_type = Enum("square_type", 
                    "Spot_Left Spot_Right Spot_Down Spot_Up \
-                    Path Entrance")
+                    Path Entrance Transparent")
 
 special_spots = Enum("special_spot_types",
                      "Handicap EV Regular")
@@ -57,7 +57,7 @@ def compute_lot_img(arr: list[list[spot_descriptor]]) -> tuple[Image.Image, list
     PIXELS_PER_BORDER: int = 4
     
     #initialize the image
-    img = Image.new("RGB", (len(arr)*PIXELS_PER_SQUARE + PIXELS_PER_BORDER * 2, len(arr[0])*PIXELS_PER_SQUARE + PIXELS_PER_BORDER * 2), color="white")
+    img = Image.new("RGBA", (len(arr)*PIXELS_PER_SQUARE + PIXELS_PER_BORDER * 2, len(arr[0])*PIXELS_PER_SQUARE + PIXELS_PER_BORDER * 2), color=(0, 0, 0, 0,))
     draw_handle = ImageDraw.Draw(img)
     
     bounding_boxes: list[parking_spot] = []
@@ -78,14 +78,14 @@ def compute_lot_img(arr: list[list[spot_descriptor]]) -> tuple[Image.Image, list
             end_y = (j+1) * PIXELS_PER_SQUARE+PIXELS_PER_BORDER - 1
             
             #perform spot placing logic
-            if(current_square_type not in (square_type.Path, square_type.Entrance)):
+            if(current_square_type not in (square_type.Path, square_type.Entrance, square_type.Transparent)):
                 bounding_boxes.append(parking_spot(str(current_spot_id), current_special_type.name, start_x, end_x, start_y, end_y))
                 current_spot_id = current_spot_id + 1
                 
                 spot_color = "black"
                 if(current_special_type == special_spots.Handicap): spot_color = "blue"
                 elif(current_special_type == special_spots.EV): spot_color = "orange"
-                draw_handle.rectangle([start_x, start_y, end_x, end_y], fill=None, outline=spot_color, width=PIXELS_PER_BORDER)
+                draw_handle.rectangle([start_x, start_y, end_x, end_y], fill="white", outline=spot_color, width=PIXELS_PER_BORDER)
                     
                 #remove open side
                 match current_square_type:
@@ -99,18 +99,27 @@ def compute_lot_img(arr: list[list[spot_descriptor]]) -> tuple[Image.Image, list
                         draw_handle.rectangle([end_x-PIXELS_PER_BORDER, start_y+PIXELS_PER_BORDER, end_x, end_y-PIXELS_PER_BORDER], fill="white", outline=None)
             
             #place exterior border if necessary
-            if(current_square_type != square_type.Entrance):
-                if(i == 0):
-                    draw_handle.rectangle([0, start_y, start_x - 1, end_y], fill="red", outline=None)
-                elif(i == len(arr) - 1):
-                    draw_handle.rectangle([end_x + 1, start_y, end_x + PIXELS_PER_BORDER, end_y], fill="red", outline=None)
+            if(current_square_type != square_type.Transparent):
+                border_color = "red"
+                if(current_square_type == square_type.Entrance):
+                    border_color = "yellow"
+                    
+                left_is_edge_or_transparent = i == 0 or arr[i - 1][j].type == square_type.Transparent
+                right_is_edge_or_transparent = i == len(arr) - 1 or arr[i + 1][j].type == square_type.Transparent
+                top_is_edge_or_transparent = j == 0 or arr[i][j - 1].type == square_type.Transparent
+                bottom_is_edge_or_transparent = j == len(arr[0]) - 1 or arr[i][j + 1].type == square_type.Transparent
+
+                if(left_is_edge_or_transparent):
+                    draw_handle.rectangle([start_x-PIXELS_PER_BORDER, start_y, start_x - 1, end_y], fill=border_color, outline=None)
+                if(right_is_edge_or_transparent):
+                    draw_handle.rectangle([end_x + 1, start_y, end_x + PIXELS_PER_BORDER, end_y], fill=border_color, outline=None)
                 
-                if(j == 0):
-                    draw_handle.rectangle([start_x, 0, end_x, PIXELS_PER_BORDER - 1], fill="red", outline=None)
-                elif(j == len(arr[0]) - 1):
-                    draw_handle.rectangle([start_x, end_y + 1, end_x, end_y + PIXELS_PER_BORDER], fill="red", outline=None)
+                if(top_is_edge_or_transparent):
+                    draw_handle.rectangle([start_x, start_y-PIXELS_PER_BORDER, end_x, start_y - 1], fill=border_color, outline=None)
+                if(bottom_is_edge_or_transparent):
+                    draw_handle.rectangle([start_x, end_y + 1, end_x, end_y + PIXELS_PER_BORDER], fill=border_color, outline=None)
             
-            #fill paths in yellow
+            #fill paths in grey
             if(current_square_type in (square_type.Path, square_type.Entrance)):
                 draw_handle.rectangle([start_x, start_y, end_x, end_y], fill="grey", outline=None)
 

@@ -7,14 +7,15 @@ from parking_lot_generator import *
 
 lot = make_lot(12, 12)
 
-lot[6][11] = spot_descriptor(square_type.Entrance, special_spots.Regular)
+lot[10][0] = spot_descriptor(square_type.Entrance, special_spots.Regular)
 
 fill(lot, 0, 0, 1, 10, square_type.Spot_Right, special_spots.Regular)
 
-fill(lot, 11, 11, 1, 5, square_type.Spot_Left, special_spots.Handicap)
-fill(lot, 11, 11, 6, 10, square_type.Spot_Left, special_spots.Regular)
 
-fill(lot, 2, 9, 0, 0, square_type.Spot_Down, special_spots.Regular)
+fill(lot, 11, 11, 1, 10, square_type.Spot_Left, special_spots.Regular)
+
+fill(lot, 2, 4, 0, 0, square_type.Spot_Down, special_spots.Regular)
+fill(lot, 5, 9, 0, 0, square_type.Spot_Down, special_spots.Handicap)
 
 fill(lot, 3, 3, 2, 4, square_type.Spot_Right, special_spots.Regular)
 fill(lot, 2, 2, 2, 4, square_type.Spot_Left, special_spots.Regular)
