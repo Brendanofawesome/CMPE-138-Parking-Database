@@ -10,9 +10,7 @@ markers = [
 norecursedirs = [".git", "venv", "build", "dist"]
 
 [tool.coverage.run]
-omit = ["src/db_init.py"]
-omit = ["src/serve_debug.py"]
-omit = ["src/serve_wsgi.py"]
+omit = ["src/db_init.py", "src/serve_debug.py", "src/serve_wsgi.py"]
 
 [tool.pylint.main]
 jobs = 0
