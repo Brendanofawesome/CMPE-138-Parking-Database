@@ -63,9 +63,9 @@ def put_lot_image_on_map(map_image: Image.Image, lot_image: Image.Image, lot_dat
         map_image.paste(lot_image, paste_position)
     
     spot_data["start_x"] += lot_data.x_coordinate
-    spot_data["end_x"] += lot_data.x_coordinate
+    spot_data["end_x"] += lot_data.x_coordinate + 1
     spot_data["start_y"] += lot_data.y_coordinate
-    spot_data["end_y"] += lot_data.y_coordinate
+    spot_data["end_y"] += lot_data.y_coordinate + 1
     
 def put_spots_in_db(connection: sqlite3.Connection, lot_data: LotDataInfo, spot_data: DataFrame) -> None:
     for _, row in spot_data.iterrows():

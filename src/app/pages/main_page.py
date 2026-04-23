@@ -30,9 +30,10 @@ _MAIN_PAGE_TEMPLATE = """
             --text: #1f2937;
             --muted: #64748b;
             --line: #cbd5e1;
-            --ev: rgba(30, 144, 255, 0.45);
+            --ev: rgba(245, 158, 11, 0.45);
             --regular: rgba(148, 163, 184, 0.45);
-            --handicap: rgba(245, 158, 11, 0.45);
+            --handicap: rgba(30, 144, 255, 0.45);
+            --special: rgba(139, 92, 246, 0.45);
         }
 
         * {
@@ -186,9 +187,15 @@ _MAIN_PAGE_TEMPLATE = """
             cursor: pointer;
         }
 
+        .spot.hovered {
+            stroke-width: 6;
+            opacity: 1;
+            filter: drop-shadow(0 12px 20px rgba(0,0,0,0.18));
+        }
+
         .spot.ev {
             fill: var(--ev);
-            stroke: rgba(30, 144, 255, 0.95);
+            stroke: rgba(217, 119, 6, 0.95);
         }
 
         .spot.regular {
@@ -198,7 +205,12 @@ _MAIN_PAGE_TEMPLATE = """
 
         .spot.handicap {
             fill: var(--handicap);
-            stroke: rgba(217, 119, 6, 0.95);
+            stroke: rgba(30, 144, 255, 0.95);
+        }
+
+        .spot.special {
+            fill: var(--special);
+            stroke: rgba(124, 58, 237, 0.95);
         }
 
         .notice {
@@ -277,6 +289,7 @@ _MAIN_PAGE_TEMPLATE = """
             <span class="chip"><span class="swatch" style="background: var(--ev);"></span>EV</span>
             <span class="chip"><span class="swatch" style="background: var(--regular);"></span>Regular</span>
             <span class="chip"><span class="swatch" style="background: var(--handicap);"></span>Handicap</span>
+            <span class="chip"><span class="swatch" style="background: var(--special);"></span>Special</span>
         </div>
     </footer>
 
@@ -305,13 +318,15 @@ _MAIN_PAGE_TEMPLATE = """
 
         function normalizeSpotType(typeValue) {
             const raw = String(typeValue || "").toLowerCase();
-            if (raw === "ev") {
-                return "ev";
+            switch (raw) {
+                case "ev":  return "ev"; 
+                            break;
+                case "handicap":    return "handicap"
+                                    break;
+                case "regular": return "regular"
+                                break;
+                default:    return "special"
             }
-            if (raw === "handicap") {
-                return "handicap";
-            }
-            return "regular";
         }
 
         function buildOverlay() {
@@ -330,20 +345,27 @@ _MAIN_PAGE_TEMPLATE = """
                 rect.setAttribute("class", "spot " + normalizeSpotType(spot.type));
                 rect.dataset.spotId = String(spot.spot_id || "Unknown");
                 rect.dataset.locationName = String(spot.location_name || "Unknown");
+                rect.dataset.type = String(spot.type || "");
 
                 rect.addEventListener("pointerenter", (event) => {
                     const target = event.currentTarget;
-                    tooltip.textContent = `Spot ${target.dataset.spotId} | ${target.dataset.locationName}`;
+                    const rawType = target.dataset.type || "";
+                    const kind = normalizeSpotType(rawType);
+                    target.classList.add('hovered')
+                    
+                    tooltip.textContent = `Spot ${target.dataset.spotId} | ${target.dataset.locationName} | ${rawType}`;
                     tooltip.style.opacity = "1";
                 });
-
+                
                 rect.addEventListener("pointermove", (event) => {
                     const rectBounds = viewport.getBoundingClientRect();
                     tooltip.style.left = `${event.clientX - rectBounds.left}px`;
                     tooltip.style.top = `${event.clientY - rectBounds.top}px`;
                 });
-
-                rect.addEventListener("pointerleave", () => {
+                
+                rect.addEventListener("pointerleave", (event) => {
+                    const target = event.currentTarget;
+                    target.classList.remove('hovered');
                     tooltip.style.opacity = "0";
                 });
 
@@ -437,6 +459,9 @@ _MAIN_PAGE_TEMPLATE = """
             state.dragInitialTy = state.ty;
             viewport.classList.add("dragging");
             viewport.setPointerCapture(event.pointerId);
+            // clear any hover state when starting a drag so it doesn't stick
+            overlay.querySelectorAll('.spot.hovered').forEach(el => el.classList.remove('hovered'));
+            tooltip.style.opacity = "0";
         });
 
         viewport.addEventListener("pointermove", (event) => {
