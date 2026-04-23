@@ -9,7 +9,7 @@ from app.map.generate_map import (
     generate_map,
     get_lot_data,
     get_lot_data_info,
-    lot_data_info,
+    LotDataInfo,
     put_default_lots,
 )
 
@@ -96,7 +96,7 @@ def test_put_default_lots_then_get_lot_data_info_returns_expected_entries(db_con
 
 def test_get_lot_data_rejects_path_traversal_data_name() -> None:
     with pytest.raises(ValueError, match="Invalid data name"):
-        get_lot_data(MAP_DATA_DIR, lot_data_info(1, 0, 0, "../outside"))
+        get_lot_data(MAP_DATA_DIR, LotDataInfo(1, 0, 0, "../outside"))
 
 
 def test_generate_map_rejects_path_traversal_base_map_name(db_conn: sqlite3.Connection) -> None:

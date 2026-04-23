@@ -1,23 +1,25 @@
-from PIL import Image
-import sqlite3
 from typing import NamedTuple
 from pathlib import Path
+
+import sqlite3
+from PIL import Image
 from pandas import DataFrame, read_csv
 
-class lot_data_info(NamedTuple):
+class LotDataInfo(NamedTuple):
     location_id: int
     x_coordinate: int
     y_coordinate: int
-    data_name: str #needs to match filename
+    data_name: str  # needs to match filename
 
-def get_lot_data_info(conn: sqlite3.Connection) -> tuple[lot_data_info, ...]:
-    if not conn: return ()
+def get_lot_data_info(connection: sqlite3.Connection) -> tuple[LotDataInfo, ...]:
+    if not connection:
+        return ()
     
-    rows = conn.execute("SELECT location_id, x_coordinate, y_coordinate, data_name FROM location").fetchall()
+    rows = connection.execute("SELECT location_id, x_coordinate, y_coordinate, data_name FROM location").fetchall()
     
-    return tuple(lot_data_info(row["location_id"], row["x_coordinate"], row["y_coordinate"], row["data_name"]) for row in rows)
+    return tuple(LotDataInfo(row["location_id"], row["x_coordinate"], row["y_coordinate"], row["data_name"]) for row in rows)
 
-def get_lot_data(filepath: Path, data_info: lot_data_info) -> tuple[Image.Image, DataFrame]:
+def get_lot_data(filepath: Path, data_info: LotDataInfo) -> tuple[Image.Image, DataFrame]:
     root_path = filepath.resolve()
     safe_file_path = (root_path / data_info.data_name).resolve()
     
@@ -27,14 +29,14 @@ def get_lot_data(filepath: Path, data_info: lot_data_info) -> tuple[Image.Image,
     #grab the image file
     try:
         image = Image.open(safe_file_path.with_suffix(".png"))
-    except:
-        raise FileExistsError(f"lot image file could not be opened: {data_info.data_name}")
+    except Exception as exc:
+        raise FileExistsError(f"lot image file could not be opened: {data_info.data_name}") from exc
         
     #grab the spot metadata
     try:
         spot_data = read_csv(safe_file_path.with_suffix(".csv"))
-    except:
-        raise FileExistsError(f"lot spot file could not be opened: {data_info.data_name}")
+    except Exception as exc:
+        raise FileExistsError(f"lot spot file could not be opened: {data_info.data_name}") from exc
     
     #ensure spot data has exactly the expected columns
     expected_columns = {"spot_id", "spot_type", "start_x", "end_x", "start_y", "end_y"}
@@ -48,7 +50,7 @@ def get_lot_data(filepath: Path, data_info: lot_data_info) -> tuple[Image.Image,
     return (image, spot_data)
 
 #puts the lot image onto the map image in the requested position and updates coordinates in spot_data
-def put_lot_image_on_map(map_image: Image.Image, lot_image: Image.Image, lot_data: lot_data_info, spot_data: DataFrame) -> None:
+def put_lot_image_on_map(map_image: Image.Image, lot_image: Image.Image, lot_data: LotDataInfo, spot_data: DataFrame) -> None:
     paste_position = (lot_data.x_coordinate, lot_data.y_coordinate)
 
     #only provide a mask when the lot image actually carries transparency.
@@ -65,9 +67,9 @@ def put_lot_image_on_map(map_image: Image.Image, lot_image: Image.Image, lot_dat
     spot_data["start_y"] += lot_data.y_coordinate
     spot_data["end_y"] += lot_data.y_coordinate
     
-def put_spots_in_db(conn: sqlite3.Connection, lot_data: lot_data_info, spot_data: DataFrame) -> None:
+def put_spots_in_db(connection: sqlite3.Connection, lot_data: LotDataInfo, spot_data: DataFrame) -> None:
     for _, row in spot_data.iterrows():
-        conn.execute(
+        connection.execute(
             """
             INSERT INTO parking_spot (location_id, spot_id, active, location_description, type, box_x_min, box_x_max, box_y_min, box_y_max)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -85,8 +87,8 @@ def put_spots_in_db(conn: sqlite3.Connection, lot_data: lot_data_info, spot_data
             )
         )
     
-def generate_map(conn: sqlite3.Connection, lot_filepath: Path, base_map_name: str, final_map_name: str):
-    lot_data_infos = get_lot_data_info(conn)
+def generate_map(connection: sqlite3.Connection, lot_filepath: Path, base_map_name: str, final_map_name: str) -> None:
+    lot_data_infos = get_lot_data_info(connection)
     root_path = lot_filepath.resolve()
     
     #initialize the map image
@@ -96,16 +98,16 @@ def generate_map(conn: sqlite3.Connection, lot_filepath: Path, base_map_name: st
     
     try:
         map_image = Image.open(base_map_path.with_suffix(".bmp"))
-    except:
-        raise FileExistsError(f"base map file could not be opened: {base_map_name}.bmp")
+    except Exception as exc:
+        raise FileExistsError(f"base map file could not be opened: {base_map_name}.bmp") from exc
     
-    for lot_data_info in lot_data_infos:
+    for lot_info in lot_data_infos:
         #put each lot on the map
-        lot_image, spot_data = get_lot_data(lot_filepath, lot_data_info)
-        put_lot_image_on_map(map_image, lot_image, lot_data_info, spot_data)
+        lot_image, spot_data = get_lot_data(lot_filepath, lot_info)
+        put_lot_image_on_map(map_image, lot_image, lot_info, spot_data)
         
         #put each spot into the database
-        put_spots_in_db(conn, lot_data_info, spot_data)
+        put_spots_in_db(connection, lot_info, spot_data)
         
     #save the final map image
     final_map_path = (root_path / final_map_name).resolve()
@@ -114,18 +116,18 @@ def generate_map(conn: sqlite3.Connection, lot_filepath: Path, base_map_name: st
     
     try:
         map_image.save(final_map_path.with_suffix(".png"))
-    except:
-        raise FileExistsError(f"final map file could not be saved: {final_map_name}.png")
+    except Exception as exc:
+        raise FileExistsError(f"final map file could not be saved: {final_map_name}.png") from exc
     
-def put_default_lots(conn: sqlite3.Connection) -> None:
-    lots: tuple[lot_data_info, ...] = (
-        lot_data_info(1, 404, 242, "lot1"),
-        lot_data_info(2, 1000, 742, "lot2"),
-        lot_data_info(3, 284, 1100, "lot3"),
+def put_default_lots(connection: sqlite3.Connection) -> None:
+    lots: tuple[LotDataInfo, ...] = (
+        LotDataInfo(1, 404, 242, "lot1"),
+        LotDataInfo(2, 1000, 742, "lot2"),
+        LotDataInfo(3, 284, 1100, "lot3"),
     )
     
     for lot in lots:
-        conn.execute(
+        connection.execute(
             """
             INSERT INTO location (lot_name, manager, manager_contact, cost_cents, x_coordinate, y_coordinate, data_name)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -151,6 +153,6 @@ if __name__ == "__main__":
     from database.establish_db import get_connection, ensure_schema # pylint: disable=import-error
     ensure_schema()
     
-    with get_connection() as conn:
-        put_default_lots(conn)
-        generate_map(conn, Path(__file__).resolve().parent / "map_data", "map_base", "final_map")
+    with get_connection() as test_conn:
+        put_default_lots(test_conn)
+        generate_map(test_conn, Path(__file__).resolve().parent / "map_data", "map_base", "final_map")
