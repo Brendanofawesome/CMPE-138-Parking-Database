@@ -19,8 +19,6 @@ class Argon2IdConfig:
 
 
 class Argon2IdProvider(AbstractPasswordHasher):
-    default_salt: bytes = "usedforcookies".encode()
-    
     def __init__(self, config: Argon2IdConfig | None = None) -> None:
         self._config = config or Argon2IdConfig()
         self._version = 19
@@ -29,11 +27,6 @@ class Argon2IdProvider(AbstractPasswordHasher):
 
     def get_hash(self, secret: bytes) -> HashInfo:
         salt = self._generate_salt()
-        return self.get_hash_with_salt(secret, salt)
-
-    def get_hash_with_salt(self, secret: bytes, salt: bytes) -> HashInfo:
-        if len(salt) == 0:
-            salt = self.default_salt
         hash_result = low_level.hash_secret_raw(
             secret,
             salt,
@@ -50,19 +43,6 @@ class Argon2IdProvider(AbstractPasswordHasher):
         expected_hash = low_level.hash_secret_raw(
             unhashed,
             salt,
-            self._config.time_cost,
-            self._config.memory_cost,
-            self._config.parallelism,
-            self._config.hash_len,
-            Type.ID,
-            self._version,
-        )
-        return expected_hash == hashed
-
-    def verify_no_salt(self, unhashed: bytes, hashed: bytes) -> bool:
-        expected_hash = low_level.hash_secret_raw(
-            unhashed,
-            self.default_salt,
             self._config.time_cost,
             self._config.memory_cost,
             self._config.parallelism,

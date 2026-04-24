@@ -77,6 +77,27 @@ def compute_lot_img(arr: list[list[spot_descriptor]]) -> tuple[Image.Image, list
             start_y = j * PIXELS_PER_SQUARE + PIXELS_PER_BORDER
             end_y = (j+1) * PIXELS_PER_SQUARE+PIXELS_PER_BORDER - 1
             
+            #perform spot placing logic
+            if(current_square_type not in (square_type.Path, square_type.Entrance, square_type.Transparent)):
+                bounding_boxes.append(parking_spot(str(current_spot_id), current_special_type.name, start_x, end_x, start_y, end_y))
+                current_spot_id = current_spot_id + 1
+                
+                spot_color = "black"
+                if(current_special_type == special_spots.Handicap): spot_color = "blue"
+                elif(current_special_type == special_spots.EV): spot_color = "orange"
+                draw_handle.rectangle([start_x, start_y, end_x, end_y], fill="white", outline=spot_color, width=PIXELS_PER_BORDER)
+                    
+                #remove open side
+                match current_square_type:
+                    case(square_type.Spot_Up):
+                        draw_handle.rectangle([start_x+PIXELS_PER_BORDER, start_y, end_x-PIXELS_PER_BORDER, start_y+PIXELS_PER_BORDER], fill="white", outline=None)
+                    case(square_type.Spot_Down):
+                        draw_handle.rectangle([start_x+PIXELS_PER_BORDER, end_y-PIXELS_PER_BORDER, end_x-PIXELS_PER_BORDER, end_y], fill="white", outline=None)
+                    case(square_type.Spot_Left):
+                        draw_handle.rectangle([start_x, start_y+PIXELS_PER_BORDER, start_x+PIXELS_PER_BORDER, end_y-PIXELS_PER_BORDER], fill="white", outline=None)
+                    case(square_type.Spot_Right):
+                        draw_handle.rectangle([end_x-PIXELS_PER_BORDER, start_y+PIXELS_PER_BORDER, end_x, end_y-PIXELS_PER_BORDER], fill="white", outline=None)
+            
             #place exterior border if necessary
             if(current_square_type != square_type.Transparent):
                 border_color = "red"
@@ -97,32 +118,6 @@ def compute_lot_img(arr: list[list[spot_descriptor]]) -> tuple[Image.Image, list
                     draw_handle.rectangle([start_x, start_y-PIXELS_PER_BORDER, end_x, start_y - 1], fill=border_color, outline=None)
                 if(bottom_is_edge_or_transparent):
                     draw_handle.rectangle([start_x, end_y + 1, end_x, end_y + PIXELS_PER_BORDER], fill=border_color, outline=None)
-                    
-            #perform spot placing logic
-            if(current_square_type not in (square_type.Path, square_type.Entrance, square_type.Transparent)):
-              
-                spot_color = "black"
-                if(current_special_type == special_spots.Handicap): spot_color = "blue"
-                elif(current_special_type == special_spots.EV): spot_color = "orange"
-                draw_handle.rectangle([start_x, start_y, end_x, end_y], fill="white", outline=spot_color, width=PIXELS_PER_BORDER)
-                    
-                #remove open side
-                match current_square_type:
-                    case(square_type.Spot_Up):
-                        draw_handle.rectangle([start_x+PIXELS_PER_BORDER, start_y, end_x-PIXELS_PER_BORDER, start_y+PIXELS_PER_BORDER], fill="white", outline=None)
-                        start_y -= PIXELS_PER_BORDER
-                    case(square_type.Spot_Down):
-                        draw_handle.rectangle([start_x+PIXELS_PER_BORDER, end_y-PIXELS_PER_BORDER, end_x-PIXELS_PER_BORDER, end_y], fill="white", outline=None)
-                        end_y += PIXELS_PER_BORDER
-                    case(square_type.Spot_Left):
-                        draw_handle.rectangle([start_x, start_y+PIXELS_PER_BORDER, start_x+PIXELS_PER_BORDER, end_y-PIXELS_PER_BORDER], fill="white", outline=None)
-                        start_x -= PIXELS_PER_BORDER
-                    case(square_type.Spot_Right):
-                        draw_handle.rectangle([end_x-PIXELS_PER_BORDER, start_y+PIXELS_PER_BORDER, end_x, end_y-PIXELS_PER_BORDER], fill="white", outline=None)
-                        end_x += PIXELS_PER_BORDER
-                        
-                bounding_boxes.append(parking_spot(str(current_spot_id), current_special_type.name, start_x + PIXELS_PER_BORDER, end_x - PIXELS_PER_BORDER, start_y + PIXELS_PER_BORDER, end_y - PIXELS_PER_BORDER))
-                current_spot_id = current_spot_id + 1
             
             #fill paths in grey
             if(current_square_type in (square_type.Path, square_type.Entrance)):
