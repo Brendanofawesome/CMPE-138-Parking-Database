@@ -68,8 +68,6 @@
 
     const state = {
 		scale: 1,
-		minScale: 1,
-		maxScale: 1,
 		tx: 0,
 		ty: 0,
 		mapWidth: 0,
@@ -95,31 +93,7 @@
       return `Spot ${spot.spot_id || "Unknown"} | ${spot.location_name || "Unknown"} | ${spot.type || "Unknown"}`;
     }
 
-    function clamp(value, min, max) {
-      return Math.min(max, Math.max(min, value));
-    }
-
-    function clampTranslation(tx, ty, scale) {
-      const vw = viewport.clientWidth;
-      const vh = viewport.clientHeight;
-      const sw = state.mapWidth * scale;
-      const sh = state.mapHeight * scale;
-
-      const minX = sw <= vw ? (vw - sw) / 2 : vw - sw;
-      const maxX = sw <= vw ? minX : 0;
-      const minY = sh <= vh ? (vh - sh) / 2 : vh - sh;
-      const maxY = sh <= vh ? minY : 0;
-
-      return {
-        tx: clamp(tx, minX, maxX),
-        ty: clamp(ty, minY, maxY)
-      };
-    }
-
     function render() {
-      const pos = clampTranslation(state.tx, state.ty, state.scale);
-      state.tx = pos.tx;
-      state.ty = pos.ty;
       content.style.transform = `translate(${state.tx}px, ${state.ty}px) scale(${state.scale})`;
     }
 
@@ -133,7 +107,7 @@
 
     function zoomAt(clientX, clientY, factor) {
       const point = toViewportPoint(clientX, clientY);
-      const newScale = clamp(state.scale * factor, state.minScale, state.maxScale);
+      const newScale = state.scale * factor;
       if (newScale === state.scale) return;
 
       const mapX = (point.x - state.tx) / state.scale;
@@ -218,9 +192,6 @@
 
 		const baseScale = Math.min(scaleX, scaleY);
 
-		state.minScale = baseScale * 0.8; // allow a little zoom out
-		state.maxScale = baseScale * 6;   // allow strong zoom in
-
 		state.scale = baseScale;
 		state.tx = 0;
 		state.ty = 0;
@@ -291,11 +262,7 @@
         const currentCenter = center(points[0], points[1]);
         const rect = viewport.getBoundingClientRect();
 
-        state.scale = clamp(
-          state.startScale * (currentDistance / state.pinchStartDistance),
-          state.minScale,
-          state.maxScale
-        );
+        state.scale = state.startScale * (currentDistance / state.pinchStartDistance);
 
         const cx = currentCenter.x - rect.left;
         const cy = currentCenter.y - rect.top;
