@@ -9,6 +9,9 @@ markers = [
 ]
 norecursedirs = [".git", "venv", "build", "dist"]
 
+[tool.coverage.run]
+omit = ["src/db_init.py", "src/serve_debug.py", "src/serve_wsgi.py"]
+
 [tool.pylint.main]
 jobs = 0
 
@@ -18,6 +21,7 @@ disable = [
     "C0115", # missing-class-docstring
     "C0116", # missing-function-docstring
     "C0303", # its a bit too strict
+    "R0801", # fails on like 3 duplicated lines ????
 ]
 
 [tool.pylint.format]
@@ -37,6 +41,7 @@ good-names = ["i", "j", "k", "ex", "_"]
 
 [tool.pylint.reports]
 score = true
+fail-under = "9.0"
 
 [tool.mypy]
 python_version = "3.10"
