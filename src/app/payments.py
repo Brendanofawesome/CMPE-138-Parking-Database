@@ -175,8 +175,8 @@ def get_transaction_history(user_id: int) -> list[TransactionRecord]:
         for row in rows
     ]
 
-fee_list = TypedDict("fee_list", {"outstanding_fees": list[OutstandingFee], "total_due": float})
-def get_payment_page_data(user_id: int) -> fee_list:
+FeeList = TypedDict("FeeList", {"outstanding_fees": list[OutstandingFee], "total_due": float})
+def get_payment_page_data(user_id: int) -> FeeList:
     outstanding_fees = get_outstanding_fees(user_id)
     total_due = sum(fee.cost for fee in outstanding_fees)
     return {
@@ -184,8 +184,8 @@ def get_payment_page_data(user_id: int) -> fee_list:
         "total_due": total_due,
     }
 
-transaction_list = TypedDict("transaction_list", {"transactions": list[TransactionRecord], "total_paid": float})
-def get_transactions_page_data(user_id: int) -> transaction_list:
+TransactionList = TypedDict("TransactionList", {"transactions": list[TransactionRecord], "total_paid": float})
+def get_transactions_page_data(user_id: int) -> TransactionList:
     transactions = get_transaction_history(user_id)
     total_paid = sum(record.amount for record in transactions)
     return {

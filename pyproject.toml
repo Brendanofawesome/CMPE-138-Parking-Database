@@ -22,6 +22,7 @@ disable = [
     "C0116", # missing-function-docstring
     "C0303", # its a bit too strict
     "R0801", # fails on like 3 duplicated lines ????
+    "R0913", # we're too young to worry about this
 ]
 
 [tool.pylint.format]

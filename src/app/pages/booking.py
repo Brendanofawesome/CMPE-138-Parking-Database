@@ -1,19 +1,23 @@
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, Response
 
-from app.payment import create_parking_session  # adjust if your file name is different
+from app.payments import create_parking_session  # adjust if your file name is different
 
 booking_bp = Blueprint("booking", __name__)
 
 @booking_bp.route("/book-spot", methods=["POST"])
-def book_spot():
+def book_spot() -> Response:
     if g.current_user is None:
-        return jsonify({"error": "You must be logged in to book a spot."}), 401
+        response = jsonify({"error": "You must be logged in to book a spot."})
+        response.status_code = 401
+        return response
 
     data = request.get_json()
     spot_id = data.get("spot_id") if data else None
 
     if not spot_id:
-        return jsonify({"error": "Missing spot_id."}), 400
+        response = jsonify({"error": "Missing spot_id."})
+        response.status_code = 400
+        return response
 
     user_id = g.current_user["user_id"]
 
