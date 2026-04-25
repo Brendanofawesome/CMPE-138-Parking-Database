@@ -1,3 +1,4 @@
+from typing import TypedDict
 from flask import Blueprint, render_template, request
 
 admin_bp = Blueprint("admin", __name__)
@@ -8,15 +9,20 @@ sessions = [
     {"plate": "XYZ789", "spot": "B2", "status": "expired", "start_time": "08:00", "expired": True},
 ]
 
-fees = []
-
+class Ticket(TypedDict):
+    plate: str
+    type: str
+    amount: float
+    status: str
 
 @admin_bp.route("/admin/plate-check", methods=["GET", "POST"])
-def plate_check_page():
+def plate_check_page() -> str:
     result = None
     message = None
     message_type = None
-    ticket = None
+    issued_ticket = None
+    
+    fees: list[Ticket] = []
 
     if request.method == "POST":
         plate_input = request.form.get("plate", "").strip().upper()
@@ -38,13 +44,14 @@ def plate_check_page():
                 message = "Ticket already issued."
                 message_type = "warning"
             elif result["expired"]:
-                ticket = {
+                ticket_data: Ticket = {
                     "plate": plate_input,
                     "type": "violation",
-                    "amount": 50,
-                    "status": "unpaid"
+                    "amount": 50.0,
+                    "status": "unpaid",
                 }
-                fees.append(ticket)
+                issued_ticket = ticket_data
+                fees.append(ticket_data)
                 message = "Ticket issued!"
                 message_type = "success"
             else:
@@ -60,5 +67,5 @@ def plate_check_page():
         result=result,
         message=message,
         message_type=message_type,
-        ticket=ticket,
+        ticket=issued_ticket,
     )
