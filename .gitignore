@@ -141,6 +141,7 @@ celerybeat.pid
 .env
 .envrc
 .venv
+**.venvlinux/
 env/
 venv/
 ENV/
@@ -226,3 +227,7 @@ __marimo__/
 
 #environment variables
 *.env
+
+
+#dont include tool outputs
+/tools/**/gen/

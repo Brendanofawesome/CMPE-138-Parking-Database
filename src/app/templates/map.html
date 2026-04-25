@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Awesome!</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/map.css') }}" />
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='car.ico') }}" />
+</head>
+<body class="map-page">
+  <header class="topbar">
+    <p class="topbar-title app-title section-title">CMPE Parking</p>
+
+    <nav class="topbar-auth" aria-label="Authentication">
+      {% if is_logged_in %}
+        <span class="username">Signed in as {{ username }}</span>
+        <form action="{{ url_for('login.logout') }}" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit">Logout</button>
+        </form>
+      {% else %}
+        <a class="app-link" href="{{ url_for('login.login') }}">Login</a>
+        <a class="app-link" href="{{ url_for('create_account.create_account') }}">Create Account</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="map-shell">
+    <section
+      id="mapViewport"
+      class="map-viewport"
+      aria-label="Interactive parking map"
+    >
+      <div id="mapContent" class="map-content">
+        <img
+          id="mapImage"
+          class="map-image"
+          src="{{ map_url }}"
+          alt="Campus parking map"
+          draggable="false"
+        />
+        <svg id="spotOverlay" class="spot-overlay" aria-hidden="true"></svg>
+      </div>
+
+      <p class="notice">Pinch or scroll to zoom. Drag to pan. Tap a spot for details.</p>
+      <div id="spotTooltip" class="spot-tooltip" role="status" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <footer class="bottom-bar">
+    <p class="bottom-title app-title section-title">Parking Map</p>
+    <div class="legend" aria-label="Parking type legend">
+      <span class="chip"><span class="swatch" style="background: var(--ev);"></span>EV</span>
+      <span class="chip"><span class="swatch" style="background: var(--regular);"></span>Regular</span>
+      <span class="chip"><span class="swatch" style="background: var(--handicap);"></span>Handicap</span>
+      <span class="chip"><span class="swatch" style="background: var(--special);"></span>Special</span>
+    </div>
+  </footer>
+
+  <script>
+    const spots = {{ spots | tojson }};
+
+    const viewport = document.getElementById("mapViewport");
+    const content = document.getElementById("mapContent");
+    const image = document.getElementById("mapImage");
+    const overlay = document.getElementById("spotOverlay");
+    const tooltip = document.getElementById("spotTooltip");
+
+    const state = {
+		scale: 1,
+		tx: 0,
+		ty: 0,
+		mapWidth: 0,
+		mapHeight: 0,
+		pointers: new Map(),
+		startTx: 0,
+		startTy: 0,
+		startScale: 1,
+		startPoint: null,
+		pinchStartDistance: 0,
+		pinchStartCenter: null,
+		pinchMapPoint: null
+		};
+
+    const svgNS = "http://www.w3.org/2000/svg";
+
+    function normalizeSpotType(type) {
+      type = String(type || "").toLowerCase();
+      return ["ev", "regular", "handicap"].includes(type) ? type : "special";
+    }
+
+    function spotLabel(spot) {
+      return `Spot ${spot.spot_id || "Unknown"} | ${spot.location_name || "Unknown"} | ${spot.type || "Unknown"}`;
+    }
+
+    function render() {
+      content.style.transform = `translate(${state.tx}px, ${state.ty}px) scale(${state.scale})`;
+    }
+
+    function toViewportPoint(clientX, clientY) {
+      const rect = viewport.getBoundingClientRect();
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    function zoomAt(clientX, clientY, factor) {
+      const point = toViewportPoint(clientX, clientY);
+      const newScale = state.scale * factor;
+      if (newScale === state.scale) return;
+
+      const mapX = (point.x - state.tx) / state.scale;
+      const mapY = (point.y - state.ty) / state.scale;
+
+      state.scale = newScale;
+      state.tx = point.x - mapX * state.scale;
+      state.ty = point.y - mapY * state.scale;
+
+      hideTooltip();
+      render();
+    }
+
+    function showTooltip(text, clientX, clientY) {
+      tooltip.textContent = text;
+
+      if (clientX != null && clientY != null) {
+        const point = toViewportPoint(clientX, clientY);
+        tooltip.style.left = `${point.x}px`;
+        tooltip.style.top = `${point.y}px`;
+      }
+
+      tooltip.style.opacity = "1";
+    }
+
+    function hideTooltip() {
+      tooltip.style.opacity = "0";
+      overlay.querySelectorAll(".spot.hovered").forEach(el => el.classList.remove("hovered"));
+    }
+
+    function buildOverlay() {
+      overlay.innerHTML = "";
+
+      for (const spot of spots) {
+        const x = Number(spot.box_x_min);
+        const y = Number(spot.box_y_min);
+        const width = Math.max(Number(spot.box_x_max) - x, 1);
+        const height = Math.max(Number(spot.box_y_max) - y, 1);
+
+        const rect = document.createElementNS(svgNS, "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", y);
+        rect.setAttribute("width", width);
+        rect.setAttribute("height", height);
+        rect.setAttribute("class", `spot ${normalizeSpotType(spot.type)}`);
+        rect.dataset.label = spotLabel(spot);
+
+        rect.addEventListener("pointerenter", (e) => {
+          if (e.pointerType === "touch") return;
+          rect.classList.add("hovered");
+          showTooltip(rect.dataset.label, e.clientX, e.clientY);
+        });
+
+        rect.addEventListener("pointermove", (e) => {
+          if (e.pointerType === "touch") return;
+          if (rect.classList.contains("hovered")) {
+            showTooltip(rect.dataset.label, e.clientX, e.clientY);
+          }
+        });
+
+        rect.addEventListener("pointerleave", () => {
+          rect.classList.remove("hovered");
+          hideTooltip();
+        });
+
+        rect.addEventListener("click", (e) => {
+          e.stopPropagation();
+          hideTooltip();
+          rect.classList.add("hovered");
+          showTooltip(rect.dataset.label, e.clientX, e.clientY);
+        });
+
+        overlay.appendChild(rect);
+      }
+    }
+
+    function fitMap() {
+		if (!state.mapWidth || !state.mapHeight) return;
+
+		const scaleX = viewport.clientWidth / state.mapWidth;
+		const scaleY = viewport.clientHeight / state.mapHeight;
+
+		const baseScale = Math.min(scaleX, scaleY);
+
+		state.scale = baseScale;
+		state.tx = 0;
+		state.ty = 0;
+		render();
+	}
+
+    function getPointerList() {
+      return [...state.pointers.values()];
+    }
+
+    function distance(a, b) {
+      return Math.hypot(b.x - a.x, b.y - a.y);
+    }
+
+    function center(a, b) {
+      return {
+        x: (a.x + b.x) / 2,
+        y: (a.y + b.y) / 2
+      };
+    }
+
+    viewport.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.1 : 0.9);
+    }, { passive: false });
+
+    viewport.addEventListener("pointerdown", (e) => {
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      viewport.setPointerCapture(e.pointerId);
+      hideTooltip();
+
+      const points = getPointerList();
+
+      if (points.length === 1) {
+        state.startPoint = points[0];
+        state.startTx = state.tx;
+        state.startTy = state.ty;
+      }
+
+      if (points.length === 2) {
+        state.startScale = state.scale;
+        state.pinchStartDistance = distance(points[0], points[1]);
+        state.pinchStartCenter = center(points[0], points[1]);
+
+        state.pinchMapPoint = {
+          x: (state.pinchStartCenter.x - viewport.getBoundingClientRect().left - state.tx) / state.scale,
+          y: (state.pinchStartCenter.y - viewport.getBoundingClientRect().top - state.ty) / state.scale
+        };
+      }
+    });
+
+    viewport.addEventListener("pointermove", (e) => {
+      if (!state.pointers.has(e.pointerId)) return;
+
+      state.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const points = getPointerList();
+
+      if (points.length === 1 && state.startPoint) {
+        const dx = points[0].x - state.startPoint.x;
+        const dy = points[0].y - state.startPoint.y;
+        state.tx = state.startTx + dx;
+        state.ty = state.startTy + dy;
+        render();
+      }
+
+      if (points.length === 2) {
+        const currentDistance = distance(points[0], points[1]);
+        const currentCenter = center(points[0], points[1]);
+        const rect = viewport.getBoundingClientRect();
+
+        state.scale = state.startScale * (currentDistance / state.pinchStartDistance);
+
+        const cx = currentCenter.x - rect.left;
+        const cy = currentCenter.y - rect.top;
+
+        state.tx = cx - state.pinchMapPoint.x * state.scale;
+        state.ty = cy - state.pinchMapPoint.y * state.scale;
+
+        render();
+      }
+    });
+
+    function endPointer(e) {
+      state.pointers.delete(e.pointerId);
+
+      if (viewport.hasPointerCapture(e.pointerId)) {
+        viewport.releasePointerCapture(e.pointerId);
+      }
+
+      const points = getPointerList();
+
+      if (points.length === 1) {
+        state.startPoint = points[0];
+        state.startTx = state.tx;
+        state.startTy = state.ty;
+      }
+
+      if (points.length === 0) {
+        state.startPoint = null;
+      }
+    }
+
+    viewport.addEventListener("pointerup", endPointer);
+    viewport.addEventListener("pointercancel", endPointer);
+    viewport.addEventListener("pointerleave", endPointer);
+
+    viewport.addEventListener("click", (e) => {
+      if (e.target === viewport || e.target === content || e.target === image || e.target === overlay) {
+        hideTooltip();
+      }
+    });
+
+    window.addEventListener("resize", render);
+
+    function initializeMap() {
+      state.mapWidth = image.naturalWidth;
+      state.mapHeight = image.naturalHeight;
+
+      if (!state.mapWidth || !state.mapHeight) return;
+
+      content.style.width = `${state.mapWidth}px`;
+      content.style.height = `${state.mapHeight}px`;
+
+      overlay.setAttribute("viewBox", `0 0 ${state.mapWidth} ${state.mapHeight}`);
+      overlay.setAttribute("width", state.mapWidth);
+      overlay.setAttribute("height", state.mapHeight);
+
+      buildOverlay();
+      fitMap();
+    }
+
+    if (image.complete && image.naturalWidth > 0) {
+      initializeMap();
+    } else {
+      image.addEventListener("load", initializeMap, { once: true });
+    }
+  </script>
+</body>
+</html>

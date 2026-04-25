@@ -29,10 +29,18 @@ class AbstractPasswordHasher(ABC):
     @abstractmethod
     def get_hash(self, secret: bytes) -> HashInfo:
         """Generate a hash and salt for the provided secret."""
+        
+    @abstractmethod
+    def get_hash_with_salt(self, secret: bytes, salt: bytes) -> HashInfo:
+        """Generate a hash from a specific salt"""
 
     @abstractmethod
     def verify(self, unhashed: bytes, hashed: bytes, salt: bytes) -> bool:
         """Verify unhashed bytes against a known hash and salt."""
+        
+    @abstractmethod
+    def verify_no_salt(self, unhashed: bytes, hashed: bytes) -> bool:
+        """Verify a token that does not contain a salt"""
 
     def _generate_salt(self) -> bytes:
         return token_bytes(16)
