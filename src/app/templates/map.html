@@ -56,6 +56,13 @@
       <span class="chip"><span class="swatch" style="background: var(--handicap);"></span>Handicap</span>
       <span class="chip"><span class="swatch" style="background: var(--special);"></span>Special</span>
     </div>
+
+    <div class="booking-controls">
+    <span id="selected-spot-text">No spot selected</span>
+    <button id="book-spot-btn" class="book-button" disabled>
+      Book Spot
+    </button>
+  </div>
   </footer>
 
   <script>
@@ -154,6 +161,7 @@
         rect.setAttribute("width", width);
         rect.setAttribute("height", height);
         rect.setAttribute("class", `spot ${normalizeSpotType(spot.type)}`);
+        rect.dataset.spotID = spot.spot_id;
         rect.dataset.label = spotLabel(spot);
 
         rect.addEventListener("pointerenter", (e) => {
@@ -330,5 +338,74 @@
       image.addEventListener("load", initializeMap, { once: true });
     }
   </script>
+
+  <script>
+  let selectedSpotId = null;
+  let selectedSpotElement = null;
+
+  const spots = document.querySelectorAll(".spot");
+  const selectedText = document.getElementById("selected-spot-text");
+  const bookButton = document.getElementById("book-spot-btn");
+
+  spots.forEach((spot) => {
+    spot.addEventListener("click", () => {
+      if (spot.classList.contains("booked")) {
+        return;
+      }
+
+      if (selectedSpotElement) {
+        selectedSpotElement.classList.remove("selected");
+      }
+
+      selectedSpotElement = spot;
+      selectedSpotId = spot.dataset.spotId;
+
+      spot.classList.add("selected");
+      selectedText.textContent = `Selected spot: ${selectedSpotId}`;
+      bookButton.disabled = false;
+    });
+  });
+
+  bookButton.addEventListener("click", async () => {
+    if (!selectedSpotId) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/book-spot", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({
+          spot_id: selectedSpotId
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(result.error || "Could not book spot.");
+        return;
+      }
+
+      selectedSpotElement.classList.remove("selected");
+      selectedSpotElement.classList.add("booked");
+
+      selectedText.textContent = `Booked spot: ${selectedSpotId}`;
+      bookButton.disabled = true;
+
+      alert("Spot booked successfully!");
+
+      selectedSpotId = null;
+      selectedSpotElement = null;
+    } catch (error) {
+      console.error(error);
+      alert("Something went wrong while booking the spot.");
+    }
+  });
+</script>
+
 </body>
 </html>
