@@ -1,0 +1,32 @@
+<h1>Plate Checking & Ticketing</h1>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="text" name="plate" placeholder="Enter License Plate" required>
+    <button type="submit" name="action" value="check">Check Plate</button>
+</form>
+
+{% if message %}
+    <p><strong>{{ message }}</strong></p>
+{% endif %}
+
+{% if result %}
+    <h3>Session Details</h3>
+    <p>Plate: {{ result.plate }}</p>
+    <p>Spot: {{ result.spot }}</p>
+    <p>Status: {{ result.status }}</p>
+
+    {% if result.expired and not ticket %}
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="plate" value="{{ result.plate }}">
+            <button type="submit" name="action" value="issue_ticket">Issue Ticket</button>
+        </form>
+    {% endif %}
+{% endif %}
+
+{% if ticket %}
+    <h3>Ticket Issued</h3>
+    <p>Plate: {{ ticket.plate }}</p>
+    <p>Amount: ${{ ticket.amount }}</p>
+{% endif %}
