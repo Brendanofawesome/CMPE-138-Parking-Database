@@ -123,6 +123,8 @@ body.map-page {
     user-select: none;
     -webkit-touch-callout: none;
     pointer-events: none;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges; 
 }
 
 .spot-overlay {
