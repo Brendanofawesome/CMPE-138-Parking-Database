@@ -307,11 +307,9 @@
 
     window.addEventListener("resize", render);
 
-    function initializeMap() {
+    image.addEventListener("load", () => {
       state.mapWidth = image.naturalWidth;
       state.mapHeight = image.naturalHeight;
-
-      if (!state.mapWidth || !state.mapHeight) return;
 
       content.style.width = `${state.mapWidth}px`;
       content.style.height = `${state.mapHeight}px`;
@@ -322,13 +320,7 @@
 
       buildOverlay();
       fitMap();
-    }
-
-    if (image.complete && image.naturalWidth > 0) {
-      initializeMap();
-    } else {
-      image.addEventListener("load", initializeMap, { once: true });
-    }
+    });
   </script>
 </body>
 </html>
