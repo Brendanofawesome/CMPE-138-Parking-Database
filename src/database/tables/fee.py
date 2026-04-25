@@ -17,7 +17,6 @@ register_table(
             SQLColumn(name='description', attribute_list='TEXT'), #might not be needed
             SQLColumn(name='fee_type', attribute_list='TEXT NOT NULL') #regular session, penalty, 
         ),
-        primary_key=('fee_id'),
         extra_constraints=(
             SQLColumn(name='fk_fee_vehicle', attribute_list='FOREIGN KEY (vehicle_id) REFERENCES vehicle(vehicle_id) ON DELETE CASCADE'),
             SQLColumn(name='fk_fee_user', attribute_list='FOREIGN KEY (user_id) REFERENCES user(user_id)'),
