@@ -12,7 +12,7 @@ register_table(
             SQLColumn(name="paid_at", attribute_list="TEXT NOT NULL"),
         ),
         extra_constraints=(
-            "FOREIGN KEY (fee_id) REFERENCES fee(fee_id)",
-        ),
+            SQLColumn(name="fk_fee_id_fees", attribute_list="FOREIGN KEY (fee_id) REFERENCES fee(fee_id)"),
+        )
     )
 )

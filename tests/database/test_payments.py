@@ -2,7 +2,7 @@ from importlib import reload
 
 import database
 import database.establish_db as establish_db
-from database import payments
+from app import payments
 
 
 def _create_user() -> int:
@@ -15,7 +15,10 @@ def _create_user() -> int:
             ("akhilesh", b"hash", "argon2id", b"salt", "5551234567"),
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        lastrowid = cursor.lastrowid
+        if lastrowid is None:
+            raise RuntimeError("Failed to retrieve inserted user id.")
+        return lastrowid
 
 
 def test_payment_schema_modules_register_tables(isolated_db_schema):
@@ -70,7 +73,7 @@ def test_payment_page_and_transactions_queries(isolated_db_schema):
     payment_page = payments.get_payment_page_data(user_id)
     assert payment_page["total_due"] == 9.00
 
-    outstanding_fees = payment_page["outstanding_fees"]
+    outstanding_fees: list[payments.OutstandingFee] = payment_page["outstanding_fees"]
     assert len(outstanding_fees) == 1
     assert outstanding_fees[0].fee_id == unpaid_fee_id
     assert outstanding_fees[0].description == "Parking for garage A"

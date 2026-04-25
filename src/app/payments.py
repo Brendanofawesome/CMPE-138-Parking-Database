@@ -1,9 +1,10 @@
 from __future__ import annotations
+from typing import TypedDict
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from .establish_db import get_connection
+from database.establish_db import get_connection
 
 
 def _utc_now_iso() -> str:
@@ -51,7 +52,10 @@ def create_parking_session(
             (user_id, spot_id, status, session_started_at, ended_at, hourly_rate),
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        lastrowid = cursor.lastrowid
+        if lastrowid is None:
+            raise RuntimeError("Failed to create parking session: no row id returned.")
+        return int(lastrowid)
 
 
 def create_fee(
@@ -74,7 +78,10 @@ def create_fee(
             (user_id, session_id, description, cost, status, valid_until, fee_created_at),
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        lastrowid = cursor.lastrowid
+        if lastrowid is None:
+            raise RuntimeError("Failed to create fee: no row id returned.")
+        return int(lastrowid)
 
 
 def record_payment(fee_id: int, amount: float, method: str, *, paid_at: str | None = None) -> int:
@@ -103,7 +110,10 @@ def record_payment(fee_id: int, amount: float, method: str, *, paid_at: str | No
             (fee_id,),
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        lastrowid = cursor.lastrowid
+        if lastrowid is None:
+            raise RuntimeError("Failed to record payment: no row id returned.")
+        return int(lastrowid)
 
 
 def get_outstanding_fees(user_id: int) -> list[OutstandingFee]:
@@ -165,8 +175,8 @@ def get_transaction_history(user_id: int) -> list[TransactionRecord]:
         for row in rows
     ]
 
-
-def get_payment_page_data(user_id: int) -> dict[str, float | list[OutstandingFee]]:
+fee_list = TypedDict("fee_list", {"outstanding_fees": list[OutstandingFee], "total_due": float})
+def get_payment_page_data(user_id: int) -> fee_list:
     outstanding_fees = get_outstanding_fees(user_id)
     total_due = sum(fee.cost for fee in outstanding_fees)
     return {
@@ -174,8 +184,8 @@ def get_payment_page_data(user_id: int) -> dict[str, float | list[OutstandingFee
         "total_due": total_due,
     }
 
-
-def get_transactions_page_data(user_id: int) -> dict[str, float | list[TransactionRecord]]:
+transaction_list = TypedDict("transaction_list", {"transactions": list[TransactionRecord], "total_paid": float})
+def get_transactions_page_data(user_id: int) -> transaction_list:
     transactions = get_transaction_history(user_id)
     total_paid = sum(record.amount for record in transactions)
     return {

@@ -15,8 +15,8 @@ register_table(
             SQLColumn(name="created_at", attribute_list="TEXT NOT NULL"),
         ),
         extra_constraints=(
-            "FOREIGN KEY (user_id) REFERENCES user(user_id)",
-            "FOREIGN KEY (session_id) REFERENCES parking_session(session_id)",
+            SQLColumn(name="fk_fee_user", attribute_list="FOREIGN KEY (user_id) REFERENCES user(user_id)"),
+            SQLColumn(name="fk_fee_session", attribute_list="FOREIGN KEY (session_id) REFERENCES parking_session(session_id)"),
         ),
     )
 )

@@ -14,7 +14,7 @@ register_table(
             SQLColumn(name="hourly_rate", attribute_list="REAL NOT NULL CHECK(hourly_rate >= 0)"),
         ),
         extra_constraints=(
-            "FOREIGN KEY (user_id) REFERENCES user(user_id)",
+            SQLColumn(name="fk_user_id_users", attribute_list="FOREIGN KEY (user_id) REFERENCES user(user_id)"),
         ),
     )
 )
