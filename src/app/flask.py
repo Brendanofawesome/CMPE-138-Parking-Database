@@ -15,6 +15,7 @@ from app.pages.create_account import create_account_bp
 from app.pages.login import login_bp
 from app.pages.map import map_bp
 from app.pages.booking import booking_bp
+from app.pages.payments import payments_bp
 
 csrf: CSRFProtect = CSRFProtect()
 
@@ -26,6 +27,7 @@ def register_pages(app: Flask) -> None:
     app.register_blueprint(login_bp)
     app.register_blueprint(create_account_bp)
     app.register_blueprint(booking_bp)
+    app.register_blueprint(payments_bp)
 
 #runs when someone accesses a page
 def get_db(app: Flask) -> sqlite3.Connection:

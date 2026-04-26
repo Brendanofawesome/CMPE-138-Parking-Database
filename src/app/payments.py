@@ -33,6 +33,29 @@ class TransactionRecord:
     paid_at: str
 
 
+def _table_columns(conn, table_name: str) -> set[str]:
+    return {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
+
+
+def _has_column(conn, table_name: str, column_name: str) -> bool:
+    return column_name in _table_columns(conn, table_name)
+
+
+def _default_fee_timestamps(created_at: str | None, valid_until: str | None) -> tuple[int, int]:
+    now_seconds = int(datetime.now(timezone.utc).timestamp())
+    if created_at is None:
+        created_ts = now_seconds
+    else:
+        created_ts = int(datetime.fromisoformat(created_at).timestamp())
+
+    if valid_until is None:
+        valid_until_ts = created_ts + 24 * 60 * 60
+    else:
+        valid_until_ts = int(datetime.fromisoformat(valid_until).timestamp())
+
+    return created_ts, valid_until_ts
+
+
 def create_parking_session(
     user_id: int,
     spot_id: str,
@@ -68,15 +91,25 @@ def create_fee(
     valid_until: str | None = None,
     created_at: str | None = None,
 ) -> int:
-    fee_created_at = created_at or _utc_now_iso()
     with get_connection() as conn:
-        cursor = conn.execute(
-            """
-            INSERT INTO fee (user_id, session_id, description, cost, status, valid_until, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (user_id, session_id, description, cost, status, valid_until, fee_created_at),
-        )
+        if _has_column(conn, "fee", "cost"):
+            fee_created_at = created_at or _utc_now_iso()
+            cursor = conn.execute(
+                """
+                INSERT INTO fee (user_id, session_id, description, cost, status, valid_until, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (user_id, session_id, description, cost, status, valid_until, fee_created_at),
+            )
+        else:
+            created_ts, valid_until_ts = _default_fee_timestamps(created_at, valid_until)
+            cursor = conn.execute(
+                """
+                INSERT INTO fee (vehicle_id, user_id, parent_fee_id, session_id, created_at, valid_until, amount, description, fee_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (0, user_id, None, session_id, created_ts, valid_until_ts, cost, description, "regular_session"),
+            )
         conn.commit()
         lastrowid = cursor.lastrowid
         if lastrowid is None:
@@ -87,14 +120,15 @@ def create_fee(
 def record_payment(fee_id: int, amount: float, method: str, *, paid_at: str | None = None) -> int:
     payment_paid_at = paid_at or _utc_now_iso()
     with get_connection() as conn:
+        fee_amount_column = "cost" if _has_column(conn, "fee", "cost") else "amount"
         fee_row = conn.execute(
-            "SELECT cost FROM fee WHERE fee_id = ?",
+            f"SELECT {fee_amount_column} AS due_amount FROM fee WHERE fee_id = ?",
             (fee_id,),
         ).fetchone()
         if fee_row is None:
             raise ValueError(f"Fee {fee_id} does not exist.")
 
-        fee_cost = float(fee_row["cost"])
+        fee_cost = float(fee_row["due_amount"])
         if amount < fee_cost:
             raise ValueError("Payment amount must cover the full fee cost.")
 
@@ -105,10 +139,11 @@ def record_payment(fee_id: int, amount: float, method: str, *, paid_at: str | No
             """,
             (fee_id, method, amount, payment_paid_at),
         )
-        conn.execute(
-            "UPDATE fee SET status = 'PAID' WHERE fee_id = ?",
-            (fee_id,),
-        )
+        if _has_column(conn, "fee", "status"):
+            conn.execute(
+                "UPDATE fee SET status = 'PAID' WHERE fee_id = ?",
+                (fee_id,),
+            )
         conn.commit()
         lastrowid = cursor.lastrowid
         if lastrowid is None:
@@ -118,15 +153,34 @@ def record_payment(fee_id: int, amount: float, method: str, *, paid_at: str | No
 
 def get_outstanding_fees(user_id: int) -> list[OutstandingFee]:
     with get_connection() as conn:
-        rows = conn.execute(
-            """
-            SELECT fee_id, session_id, description, cost, status, valid_until, created_at
-            FROM fee
-            WHERE user_id = ? AND status != 'PAID'
-            ORDER BY created_at DESC, fee_id DESC
-            """,
-            (user_id,),
-        ).fetchall()
+        if _has_column(conn, "fee", "cost"):
+            rows = conn.execute(
+                """
+                SELECT fee_id, session_id, description, cost, status, valid_until, created_at
+                FROM fee
+                WHERE user_id = ? AND status != 'PAID'
+                ORDER BY created_at DESC, fee_id DESC
+                """,
+                (user_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT
+                    fee.fee_id,
+                    fee.session_id,
+                    fee.description,
+                    fee.amount AS cost,
+                    'UNPAID' AS status,
+                    fee.valid_until,
+                    fee.created_at
+                FROM fee
+                LEFT JOIN payment ON payment.fee_id = fee.fee_id
+                WHERE fee.user_id = ? AND payment.payment_id IS NULL
+                ORDER BY fee.created_at DESC, fee.fee_id DESC
+                """,
+                (user_id,),
+            ).fetchall()
 
     return [
         OutstandingFee(

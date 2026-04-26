@@ -1,6 +1,6 @@
-from flask import Blueprint, request, jsonify, g, Response
+from flask import Blueprint, request, jsonify, g, Response, url_for
 
-from app.payments import create_parking_session  # adjust if your file name is different
+from app.payments import create_fee, create_parking_session
 
 booking_bp = Blueprint("booking", __name__)
 
@@ -27,9 +27,18 @@ def book_spot() -> Response:
         hourly_rate=5.00,
         status="ON_HOLD"
     )
+    fee_id = create_fee(
+        user_id=user_id,
+        session_id=session_id,
+        description=f"Parking reservation for spot {spot_id}",
+        cost=5.00,
+        status="UNPAID",
+    )
 
     return jsonify({
         "message": "Spot booked successfully.",
         "session_id": session_id,
-        "spot_id": spot_id
+        "spot_id": spot_id,
+        "fee_id": fee_id,
+        "payments_url": url_for("payments.payments_page"),
     })
