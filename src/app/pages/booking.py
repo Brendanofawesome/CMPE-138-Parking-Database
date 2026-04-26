@@ -52,7 +52,6 @@ def book_spot() -> Response:
         session_id=session_id,
         description=f"Parking reservation for spot {spot_id}",
         cost=hourly_rate,
-        status="UNPAID",
     )
 
     return jsonify({

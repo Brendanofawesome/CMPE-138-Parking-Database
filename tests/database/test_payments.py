@@ -19,118 +19,10 @@ def isolated_payments_db(tmp_path, monkeypatch):
     monkeypatch.setattr(establish_db, "DATABASE", str(db_path))
     monkeypatch.setattr(database, "DATABASE", str(db_path))
 
-    original_schema = list(establish_db.EXPECTED_SCHEMA)
-    establish_db.EXPECTED_SCHEMA.clear()
-
-    establish_db.register_table(
-        establish_db.Table(
-            name="user",
-            columns=(
-                establish_db.SQLColumn("user_id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
-                establish_db.SQLColumn("username", "TEXT NOT NULL UNIQUE"),
-                establish_db.SQLColumn("password_hash", "BLOB NOT NULL"),
-                establish_db.SQLColumn("hash_algorithm", "TEXT NOT NULL"),
-                establish_db.SQLColumn("salt", "BLOB NOT NULL"),
-                establish_db.SQLColumn("phone_number", "TEXT NOT NULL"),
-            ),
-        )
-    )
-    establish_db.register_table(
-        establish_db.Table(
-            name="location",
-            columns=(
-                establish_db.SQLColumn("location_id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
-                establish_db.SQLColumn("lot_name", "TEXT NOT NULL"),
-                establish_db.SQLColumn("hourly_cost_cents", "INTEGER NOT NULL"),
-            ),
-        )
-    )
-    establish_db.register_table(
-        establish_db.Table(
-            name="parking_spot",
-            columns=(
-                establish_db.SQLColumn("location_id", "INTEGER NOT NULL"),
-                establish_db.SQLColumn("spot_id", "TEXT NOT NULL"),
-            ),
-            primary_key=("location_id", "spot_id"),
-            extra_constraints=(
-                establish_db.SQLColumn(
-                    "fk_spot_location",
-                    "FOREIGN KEY (location_id) REFERENCES location(location_id)",
-                ),
-            ),
-        )
-    )
-    establish_db.register_table(
-        establish_db.Table(
-            name="parking_session",
-            columns=(
-                establish_db.SQLColumn("session_id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
-                establish_db.SQLColumn("user_id", "INTEGER NOT NULL"),
-                establish_db.SQLColumn("spot_id", "TEXT NOT NULL"),
-                establish_db.SQLColumn("status", "TEXT NOT NULL"),
-                establish_db.SQLColumn("started_at", "TEXT NOT NULL"),
-                establish_db.SQLColumn("ended_at", "TEXT"),
-            ),
-            extra_constraints=(
-                establish_db.SQLColumn(
-                    "fk_parking_session_user",
-                    "FOREIGN KEY (user_id) REFERENCES user(user_id)",
-                ),
-            ),
-        )
-    )
-    establish_db.register_table(
-        establish_db.Table(
-            name="fee",
-            columns=(
-                establish_db.SQLColumn("fee_id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
-                establish_db.SQLColumn("user_id", "INTEGER NOT NULL"),
-                establish_db.SQLColumn("session_id", "INTEGER"),
-                establish_db.SQLColumn("description", "TEXT NOT NULL"),
-                establish_db.SQLColumn("cost", "REAL NOT NULL"),
-                establish_db.SQLColumn("status", "TEXT NOT NULL"),
-                establish_db.SQLColumn("valid_until", "TEXT"),
-                establish_db.SQLColumn("created_at", "TEXT NOT NULL"),
-            ),
-            extra_constraints=(
-                establish_db.SQLColumn(
-                    "fk_fee_user",
-                    "FOREIGN KEY (user_id) REFERENCES user(user_id)",
-                ),
-                establish_db.SQLColumn(
-                    "fk_fee_session",
-                    "FOREIGN KEY (session_id) REFERENCES parking_session(session_id)",
-                ),
-            ),
-        )
-    )
-    establish_db.register_table(
-        establish_db.Table(
-            name="payment",
-            columns=(
-                establish_db.SQLColumn("payment_id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
-                establish_db.SQLColumn("fee_id", "INTEGER NOT NULL"),
-                establish_db.SQLColumn("method", "TEXT NOT NULL"),
-                establish_db.SQLColumn("amount", "REAL NOT NULL"),
-                establish_db.SQLColumn("paid_at", "TEXT NOT NULL"),
-            ),
-            extra_constraints=(
-                establish_db.SQLColumn(
-                    "fk_payment_fee",
-                    "FOREIGN KEY (fee_id) REFERENCES fee(fee_id)",
-                ),
-            ),
-        )
-    )
-
     establish_db.ensure_schema()
     reload(payments)
 
     yield db_path
-
-    establish_db.EXPECTED_SCHEMA.clear()
-    establish_db.EXPECTED_SCHEMA.extend(original_schema)
 
 
 def _create_user() -> int:
@@ -153,10 +45,10 @@ def _create_location_with_spot(*, spot_id: str = "A-101", hourly_cost_cents: int
     with establish_db.get_connection() as conn:
         location_cursor = conn.execute(
             """
-            INSERT INTO location (lot_name, hourly_cost_cents)
-            VALUES (?, ?)
+            INSERT INTO location (lot_name, manager, manager_contact, hourly_cost_cents, x_coordinate, y_coordinate, data_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            ("Garage A", hourly_cost_cents),
+            ("Garage A", None, None, hourly_cost_cents, 0, 0, "lot1"),
         )
         location_id = location_cursor.lastrowid
         if location_id is None:
@@ -164,10 +56,13 @@ def _create_location_with_spot(*, spot_id: str = "A-101", hourly_cost_cents: int
 
         conn.execute(
             """
-            INSERT INTO parking_spot (location_id, spot_id)
-            VALUES (?, ?)
+            INSERT INTO parking_spot (
+                location_id, spot_id, active, location_description, type,
+                box_x_min, box_x_max, box_y_min, box_y_max
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (int(location_id), spot_id),
+            (int(location_id), spot_id, True, "", "standard", 0, 1, 0, 1),
         )
         conn.commit()
         return int(location_id)
@@ -187,7 +82,7 @@ def test_create_parking_session_and_fee_use_default_timestamps(isolated_payments
             (session_id,),
         ).fetchone()
         fee_row = conn.execute(
-            "SELECT user_id, session_id, description, cost, status, valid_until, created_at FROM fee WHERE fee_id = ?",
+            "SELECT user_id, session_id, description, amount, fee_type, valid_until, created_at FROM fee WHERE fee_id = ?",
             (fee_id,),
         ).fetchone()
 
@@ -202,10 +97,10 @@ def test_create_parking_session_and_fee_use_default_timestamps(isolated_payments
     assert fee_row["user_id"] == user_id
     assert fee_row["session_id"] == session_id
     assert fee_row["description"] == "Parking"
-    assert fee_row["cost"] == 9.0
-    assert fee_row["status"] == "UNPAID"
-    assert fee_row["valid_until"] is None
-    assert fee_row["created_at"]
+    assert fee_row["amount"] == 9.0
+    assert fee_row["fee_type"] == "regular_session"
+    assert fee_row["valid_until"] is not None
+    assert fee_row["created_at"] is not None
 
 
 def test_record_payment_and_page_data_queries(isolated_payments_db):
@@ -321,10 +216,10 @@ class _RecordPaymentConnection:
 
     def execute(self, sql: str, params: tuple[object, ...]):
         self.executed_sql.append(sql)
-        if sql.startswith("SELECT cost FROM fee"):
+        if sql.startswith("SELECT amount AS due_amount FROM fee"):
             class _FeeRow:
                 def __getitem__(self, key: str) -> float:
-                    assert key == "cost"
+                    assert key == "due_amount"
                     return 12.0
 
             class _FeeCursor:
