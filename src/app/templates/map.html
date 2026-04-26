@@ -369,7 +369,7 @@
     }
 
     spot.classList.add("selected");
-    selectedText.textContent = `Selected spot: ${selectedSpotId}`;
+    selectedText.textContent = `Selected spot: ${selectedSpotId} in lot: ${spot.dataset.label.split("|")[1].trim()}`;
     bookButton.disabled = false;
   }
 
