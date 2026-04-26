@@ -1,32 +1,134 @@
-<h1>Plate Checking & Ticketing</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plate Checking & Ticketing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
 
-<form method="POST">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="text" name="plate" placeholder="Enter License Plate" required>
-    <button type="submit" name="action" value="check">Check Plate</button>
-</form>
+        form {
+            margin-bottom: 1rem;
+        }
 
-{% if message %}
-    <p><strong>{{ message }}</strong></p>
-{% endif %}
+        input, button {
+            padding: 0.5rem;
+            margin-right: 0.5rem;
+        }
 
-{% if result %}
-    <h3>Session Details</h3>
-    <p>Plate: {{ result.plate }}</p>
-    <p>Spot: {{ result.spot }}</p>
-    <p>Status: {{ result.status }}</p>
+        .message {
+            margin: 1rem 0;
+            padding: 0.75rem;
+            border-radius: 6px;
+        }
 
-    {% if result.expired and not ticket %}
+        .success { background: #d1fae5; }
+        .warning { background: #fef3c7; }
+        .error { background: #fee2e2; }
+
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            background: #f3f4f6;
+        }
+    </style>
+</head>
+<body>
+    <h1>Plate Checking & Ticketing</h1>
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="plate" placeholder="License Plate" required>
+        <input type="text" name="state" placeholder="State" required>
+        <button type="submit" name="action" value="check">Check Plate</button>
+    </form>
+
+    {% if message %}
+        <div class="message {{ message_type }}">
+            <strong>{{ message }}</strong>
+        </div>
+    {% endif %}
+
+    {% if vehicle %}
+        <div class="card">
+            <h2>Vehicle Details</h2>
+            <p><strong>Plate:</strong> {{ vehicle.Licence_Value }}</p>
+            <p><strong>State:</strong> {{ vehicle.Licence_State }}</p>
+            <p><strong>Make:</strong> {{ vehicle.Make or "N/A" }}</p>
+            <p><strong>Model:</strong> {{ vehicle.Model or "N/A" }}</p>
+            <p><strong>Color:</strong> {{ vehicle.Color or "N/A" }}</p>
+            <p><strong>User ID:</strong> {{ vehicle.user_id }}</p>
+        </div>
+
         <form method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="plate" value="{{ result.plate }}">
-            <button type="submit" name="action" value="issue_ticket">Issue Ticket</button>
+            <input type="hidden" name="plate" value="{{ vehicle.Licence_Value }}">
+            <input type="hidden" name="state" value="{{ vehicle.Licence_State }}">
+            <button type="submit" name="action" value="issue_ticket">Issue Violation Ticket</button>
         </form>
-    {% endif %}
-{% endif %}
 
-{% if ticket %}
-    <h3>Ticket Issued</h3>
-    <p>Plate: {{ ticket.plate }}</p>
-    <p>Amount: ${{ ticket.amount }}</p>
-{% endif %}
+        <div class="card">
+            <h2>Existing Fees</h2>
+
+            {% if fees %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fee ID</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Description</th>
+                            <th>Created At</th>
+                            <th>Valid Until</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fee in fees %}
+                        <tr>
+                            <td>{{ fee.fee_id }}</td>
+                            <td>{{ fee.fee_type }}</td>
+                            <td>${{ "%.2f"|format(fee.amount) }}</td>
+                            <td>{{ fee.description or "N/A" }}</td>
+                            <td>{{ fee.created_at | datetimeformat }}</td>
+                            <td>{{ fee.valid_until | datetimeformat }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No fees found for this vehicle.</p>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {% if issued_fee %}
+        <div class="card">
+            <h2>Newly Issued Ticket</h2>
+            <p><strong>Fee ID:</strong> {{ issued_fee.fee_id }}</p>
+            <p><strong>Type:</strong> {{ issued_fee.fee_type }}</p>
+            <p><strong>Amount:</strong> ${{ "%.2f"|format(issued_fee.amount) }}</p>
+            <p><strong>Description:</strong> {{ issued_fee.description }}</p>
+        </div>
+    {% endif %}
+</body>
+</html>
