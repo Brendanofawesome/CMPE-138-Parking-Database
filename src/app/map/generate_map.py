@@ -137,13 +137,13 @@ def put_default_lots(connection: sqlite3.Connection) -> None:
     for lot in lots:
         connection.execute(
             """
-            INSERT INTO location (lot_name, manager, manager_contact, cost_cents, x_coordinate, y_coordinate, data_name)
+            INSERT INTO location (lot_name, manager, manager_contact, hourly_cost_cents, x_coordinate, y_coordinate, data_name)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(data_name) DO UPDATE SET
                 lot_name=excluded.lot_name,
                 manager=excluded.manager,
                 manager_contact=excluded.manager_contact,
-                cost_cents=excluded.cost_cents,
+                hourly_cost_cents=excluded.hourly_cost_cents,
                 x_coordinate=excluded.x_coordinate,
                 y_coordinate=excluded.y_coordinate
             """,

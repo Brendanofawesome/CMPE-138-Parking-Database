@@ -22,7 +22,7 @@ def map_app(tmp_path, monkeypatch):
         conn.row_factory = sqlite3.Row
         conn.execute(
             """
-            INSERT INTO location (lot_name, manager, manager_contact, cost_cents, x_coordinate, y_coordinate, data_name)
+            INSERT INTO location (lot_name, manager, manager_contact, hourly_cost_cents, x_coordinate, y_coordinate, data_name)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             ("Lot 1", None, None, 500, 100, 200, "lot1"),

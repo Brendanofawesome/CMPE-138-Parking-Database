@@ -10,7 +10,7 @@ register_table(
             SQLColumn(name="lot_name", attribute_list="TEXT NOT NULL"),
             SQLColumn(name="manager", attribute_list=""),
             SQLColumn(name="manager_contact", attribute_list="TEXT"),
-            SQLColumn(name="cost_cents", attribute_list="INTEGER NOT NULL"),
+            SQLColumn(name="hourly_cost_cents", attribute_list="INTEGER NOT NULL"),
             SQLColumn(name="x_coordinate", attribute_list="INTEGER NOT NULL"),
             SQLColumn(name="y_coordinate", attribute_list="INTEGER NOT NULL"),
             SQLColumn(name="data_name", attribute_list="TEXT NOT NULL UNIQUE")
