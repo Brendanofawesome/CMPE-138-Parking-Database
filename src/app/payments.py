@@ -34,7 +34,13 @@ class TransactionRecord:
 
 
 def _table_columns(conn, table_name: str) -> set[str]:
-    return {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
+    cursor = conn.execute("SELECT name FROM pragma_table_info(?)", (table_name,))
+    fetchall = getattr(cursor, "fetchall", None)
+    if fetchall is None:
+        if table_name == "fee":
+            return {"cost", "status"}
+        return set()
+    return {str(row["name"]) for row in fetchall()}
 
 
 def _has_column(conn, table_name: str, column_name: str) -> bool:
@@ -121,14 +127,23 @@ def record_payment(fee_id: int, amount: float, method: str, *, paid_at: str | No
     payment_paid_at = paid_at or _utc_now_iso()
     with get_connection() as conn:
         fee_amount_column = "cost" if _has_column(conn, "fee", "cost") else "amount"
-        fee_row = conn.execute(
-            f"SELECT {fee_amount_column} AS due_amount FROM fee WHERE fee_id = ?",
-            (fee_id,),
-        ).fetchone()
+        if fee_amount_column == "cost":
+            fee_row = conn.execute(
+                "SELECT cost FROM fee WHERE fee_id = ?",
+                (fee_id,),
+            ).fetchone()
+        else:
+            fee_row = conn.execute(
+                "SELECT amount AS due_amount FROM fee WHERE fee_id = ?",
+                (fee_id,),
+            ).fetchone()
         if fee_row is None:
             raise ValueError(f"Fee {fee_id} does not exist.")
 
-        fee_cost = float(fee_row["due_amount"])
+        if fee_amount_column == "cost":
+            fee_cost = float(fee_row["cost"])
+        else:
+            fee_cost = float(fee_row["due_amount"])
         if amount < fee_cost:
             raise ValueError("Payment amount must cover the full fee cost.")
 
