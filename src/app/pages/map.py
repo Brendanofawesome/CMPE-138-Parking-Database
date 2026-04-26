@@ -26,23 +26,44 @@ def map_page() -> ResponseReturnValue:
     spots: list[dict[str, int | str]] = []
     username = ""
     is_logged_in = False
+    current_user = g.get("current_user")
+    current_user_id = int(current_user["user_id"]) if current_user is not None else -1
+
     if db is not None:
         try:
             rows = db.execute(
                 """
-                SELECT parking_spot.spot_id,
-                      parking_spot.location_id,
-                       parking_spot.type,
-                       parking_spot.box_x_min,
-                       parking_spot.box_x_max,
-                       parking_spot.box_y_min,
-                       parking_spot.box_y_max,
-                       location.lot_name AS location_name
+                SELECT  parking_spot.spot_id,
+                        parking_spot.location_id,
+                        parking_spot.type,
+                        parking_spot.box_x_min,
+                        parking_spot.box_x_max,
+                        parking_spot.box_y_min,
+                        parking_spot.box_y_max,
+                        location.lot_name AS location_name,
+                        CASE
+                            WHEN active_sessions.active_session_spot_id IS NULL THEN 0
+                            ELSE 1
+                        END AS is_booked,
+                        COALESCE(active_sessions.is_booked_by_current_user, 0) AS is_booked_by_current_user
                 FROM parking_spot
                 JOIN location ON location.location_id = parking_spot.location_id
+                LEFT JOIN (
+                    SELECT
+                        location_id AS active_session_location_id,
+                        spot_id AS active_session_spot_id,
+                        MAX(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS is_booked_by_current_user
+                    FROM parking_session
+                    WHERE ended_at IS NULL
+                    GROUP BY location_id, spot_id
+                ) AS active_sessions
+                ON active_sessions.active_session_location_id = parking_spot.location_id
+                AND active_sessions.active_session_spot_id = parking_spot.spot_id
                 WHERE parking_spot.active = 1
-                """
+                """,
+                (current_user_id,),
             ).fetchall()
+            
             spots = [
                 {
                     "spot_id": row["spot_id"],
@@ -53,11 +74,12 @@ def map_page() -> ResponseReturnValue:
                     "box_y_min": row["box_y_min"],
                     "box_y_max": row["box_y_max"],
                     "location_name": row["location_name"],
+                    "is_booked": bool(row["is_booked"]),
+                    "is_booked_by_current_user": bool(row["is_booked_by_current_user"]),
                 }
                 for row in rows
             ]
 
-            current_user = g.get("current_user")
             if current_user is not None:
                 user_row = db.execute(
                     "SELECT username FROM user WHERE user_id = ?",

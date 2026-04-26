@@ -35,6 +35,15 @@ class TransactionRecord:
     paid_at: str
 
 
+@dataclass(frozen=True, slots=True)
+class ActiveParkingSession:
+    session_id: int
+    spot_id: str
+    status: str
+    started_at: str
+    hourly_rate: float
+
+
 
 def _default_fee_timestamps(created_at: str | None, valid_until: str | None) -> tuple[int, int]:
     now_seconds = int(datetime.now(timezone.utc).timestamp())
@@ -76,7 +85,6 @@ def _resolve_spot_hourly_cost_cents(conn: Connection, location_id: int, spot_id:
 
     return hourly_cost_cents_int
 
-
 def get_spot_hourly_rate(location_id: int, spot_id: str) -> float:
     with get_connection() as conn:
         return _resolve_spot_hourly_cost_cents(conn, location_id, spot_id) / 100.0
@@ -96,11 +104,12 @@ def create_parking_session(
         _resolve_spot_hourly_cost_cents(conn, location_id, spot_id)
         cursor = conn.execute(
             """
-            INSERT INTO parking_session (user_id, spot_id, status, started_at, ended_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (user_id, spot_id, status, session_started_at, ended_at),
+            (user_id, location_id, spot_id, status, session_started_at, ended_at),
         )
+
         conn.commit()
         lastrowid = cursor.lastrowid
         if lastrowid is None:
@@ -228,6 +237,37 @@ def get_transaction_history(user_id: int) -> list[TransactionRecord]:
         for row in rows
     ]
 
+
+def get_active_sessions(user_id: int) -> list[ActiveParkingSession]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                parking_session.session_id,
+                parking_session.spot_id,
+                parking_session.status,
+                parking_session.started_at,
+                COALESCE(location.hourly_cost_cents, 0) / 100.0 AS hourly_rate
+            FROM parking_session
+            LEFT JOIN location ON location.location_id = parking_session.location_id
+            WHERE parking_session.user_id = ?
+                AND parking_session.ended_at IS NULL
+            ORDER BY parking_session.started_at DESC, parking_session.session_id DESC
+            """,
+            (user_id,),
+        ).fetchall()
+
+    return [
+        ActiveParkingSession(
+            session_id=int(row["session_id"]),
+            spot_id=str(row["spot_id"]),
+            status=str(row["status"]),
+            started_at=str(row["started_at"]),
+            hourly_rate=float(row["hourly_rate"]),
+        )
+        for row in rows
+    ]
+
 FeeList = TypedDict("FeeList", {"outstanding_fees": list[OutstandingFee], "total_due": float})
 def get_payment_page_data(user_id: int) -> FeeList:
     outstanding_fees = get_outstanding_fees(user_id)
@@ -244,4 +284,11 @@ def get_transactions_page_data(user_id: int) -> TransactionList:
     return {
         "transactions": transactions,
         "total_paid": total_paid,
+    }
+
+
+ActiveSessionList = TypedDict("ActiveSessionList", {"active_sessions": list[ActiveParkingSession]})
+def get_active_sessions_page_data(user_id: int) -> ActiveSessionList:
+    return {
+        "active_sessions": get_active_sessions(user_id),
     }

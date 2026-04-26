@@ -78,7 +78,7 @@ def test_create_parking_session_and_fee_use_default_timestamps(isolated_payments
     with closing(sqlite3.connect(isolated_payments_db)) as conn:
         conn.row_factory = sqlite3.Row
         session_row = conn.execute(
-            "SELECT user_id, spot_id, status, ended_at, started_at FROM parking_session WHERE session_id = ?",
+            "SELECT user_id, location_id, spot_id, status, ended_at, started_at FROM parking_session WHERE session_id = ?",
             (session_id,),
         ).fetchone()
         fee_row = conn.execute(
@@ -88,6 +88,7 @@ def test_create_parking_session_and_fee_use_default_timestamps(isolated_payments
 
     assert session_row is not None
     assert session_row["user_id"] == user_id
+    assert session_row["location_id"] == location_id
     assert session_row["spot_id"] == "A-101"
     assert session_row["status"] == "ON_HOLD"
     assert session_row["ended_at"] is None
@@ -162,6 +163,74 @@ def test_getters_return_empty_lists_when_no_data(isolated_payments_db):
 
     assert payment_page == {"outstanding_fees": [], "total_due": 0}
     assert transactions_page == {"transactions": [], "total_paid": 0}
+
+
+def test_get_active_sessions_filters_ended_sessions(isolated_payments_db):
+    user_id = _create_user()
+    other_user_id = None
+
+    with establish_db.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO user (username, password_hash, hash_algorithm, salt, phone_number)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("other_user", b"hash", "argon2id", b"salt", "5550000000"),
+        )
+        row = conn.execute(
+            "SELECT user_id FROM user WHERE username = ?",
+            ("other_user",),
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("Failed to create other_user test fixture.")
+        other_user_id = int(row["user_id"])
+        conn.commit()
+
+    location_id = _create_location_with_spot(spot_id="A-101", hourly_cost_cents=450)
+    with establish_db.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO parking_spot (
+                location_id, spot_id, active, location_description, type,
+                box_x_min, box_x_max, box_y_min, box_y_max
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (location_id, "B-201", True, "", "standard", 2, 3, 2, 3),
+        )
+        conn.commit()
+
+    active_session_id = payments.create_parking_session(
+        user_id,
+        "A-101",
+        location_id,
+        status="IN_SESSION",
+        started_at="2026-04-20T09:00:00+00:00",
+        ended_at=None,
+    )
+    payments.create_parking_session(
+        user_id,
+        "B-201",
+        location_id,
+        status="COMPLETED",
+        started_at="2026-04-19T09:00:00+00:00",
+        ended_at="2026-04-19T11:00:00+00:00",
+    )
+    payments.create_parking_session(
+        other_user_id,
+        "A-101",
+        location_id,
+        status="IN_SESSION",
+        started_at="2026-04-20T10:00:00+00:00",
+        ended_at=None,
+    )
+
+    active_sessions = payments.get_active_sessions(user_id)
+    assert len(active_sessions) == 1
+    assert active_sessions[0].session_id == active_session_id
+    assert active_sessions[0].spot_id == "A-101"
+    assert active_sessions[0].status == "IN_SESSION"
+    assert active_sessions[0].hourly_rate == 4.5
 
 
 def test_record_payment_rejects_unknown_fee(isolated_payments_db):

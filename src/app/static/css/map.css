@@ -3,6 +3,8 @@
     --regular: rgba(148, 163, 184, 0.45);
     --handicap: rgba(30, 144, 255, 0.45);
     --special: rgba(139, 92, 246, 0.45);
+    --booked: rgba(46, 46, 46, 0.65);
+    --your-booking: rgba(13, 255, 178, 0.62);
 }
 
 body.map-page {
@@ -200,10 +202,54 @@ body.map-page {
 }
 
 .spot.booked {
-    fill: rgba(239, 68, 68, 0.5);
-    stroke: rgba(185, 28, 28, 0.95);
+    fill: var(--booked);
+    stroke: rgba(71, 85, 105, 0.95);
+    stroke-width: 2;
     cursor: not-allowed;
     opacity: 0.75;
+    filter: none;
+}
+
+.spot.your-booking {
+    fill: var(--your-booking);
+    stroke: rgba(2, 132, 199, 0.95);
+    cursor: not-allowed;
+    opacity: 0.88;
+}
+
+.spot.booked.hovered,
+.spot.your-booking.hovered,
+.spot.booked.selected,
+.spot.your-booking.selected {
+    stroke-width: 2;
+    filter: none;
+}
+
+.spot.booked.selected,
+.spot.your-booking.selected {
+    fill: inherit;
+}
+
+.booking-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.booking-controls label {
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.booking-controls input[type="number"] {
+    width: 80px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    padding: 7px 8px;
+    font: inherit;
+    background: #fff;
+    color: #0f172a;
 }
 
 .book-button {

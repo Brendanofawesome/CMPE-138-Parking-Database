@@ -7,6 +7,7 @@ register_table(
         columns=(
             SQLColumn(name="session_id", attribute_list="INTEGER PRIMARY KEY AUTOINCREMENT"),
             SQLColumn(name="user_id", attribute_list="INTEGER NOT NULL"),
+            SQLColumn(name="location_id", attribute_list="INTEGER"),
             SQLColumn(name="spot_id", attribute_list="TEXT NOT NULL"),
             SQLColumn(name="status", attribute_list="TEXT NOT NULL DEFAULT 'ON_HOLD'"),
             SQLColumn(name="started_at", attribute_list="TEXT NOT NULL"),
