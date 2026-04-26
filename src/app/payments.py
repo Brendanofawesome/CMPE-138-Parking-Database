@@ -62,10 +62,41 @@ def _default_fee_timestamps(created_at: str | None, valid_until: str | None) -> 
     return created_ts, valid_until_ts
 
 
+def _resolve_spot_hourly_cost_cents(conn, location_id: int, spot_id: str) -> int:
+    row = conn.execute(
+        """
+        SELECT location.hourly_cost_cents
+        FROM parking_spot
+        INNER JOIN location ON location.location_id = parking_spot.location_id
+        WHERE parking_spot.location_id = ?
+          AND parking_spot.spot_id = ?
+        """,
+        (location_id, spot_id),
+    ).fetchone()
+
+    if row is None:
+        raise ValueError(f"Spot {spot_id!r} for location {location_id} does not exist.")
+
+    hourly_cost_cents = row["hourly_cost_cents"]
+    if hourly_cost_cents is None:
+        raise ValueError(f"Location {location_id} has no hourly_cost_cents configured.")
+
+    hourly_cost_cents_int = int(hourly_cost_cents)
+    if hourly_cost_cents_int < 0:
+        raise ValueError(f"Location {location_id} has invalid hourly_cost_cents configured.")
+
+    return hourly_cost_cents_int
+
+
+def get_spot_hourly_rate(location_id: int, spot_id: str) -> float:
+    with get_connection() as conn:
+        return _resolve_spot_hourly_cost_cents(conn, location_id, spot_id) / 100.0
+
+
 def create_parking_session(
     user_id: int,
     spot_id: str,
-    hourly_rate: float,
+    location_id: int,
     *,
     status: str = "ON_HOLD",
     started_at: str | None = None,
@@ -73,12 +104,13 @@ def create_parking_session(
 ) -> int:
     session_started_at = started_at or _utc_now_iso()
     with get_connection() as conn:
+        _resolve_spot_hourly_cost_cents(conn, location_id, spot_id)
         cursor = conn.execute(
             """
-            INSERT INTO parking_session (user_id, spot_id, status, started_at, ended_at, hourly_rate)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO parking_session (user_id, spot_id, status, started_at, ended_at)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (user_id, spot_id, status, session_started_at, ended_at, hourly_rate),
+            (user_id, spot_id, status, session_started_at, ended_at),
         )
         conn.commit()
         lastrowid = cursor.lastrowid

@@ -31,6 +31,7 @@ def map_page() -> ResponseReturnValue:
             rows = db.execute(
                 """
                 SELECT parking_spot.spot_id,
+                      parking_spot.location_id,
                        parking_spot.type,
                        parking_spot.box_x_min,
                        parking_spot.box_x_max,
@@ -45,6 +46,7 @@ def map_page() -> ResponseReturnValue:
             spots = [
                 {
                     "spot_id": row["spot_id"],
+                    "location_id": row["location_id"],
                     "type": row["type"],
                     "box_x_min": row["box_x_min"],
                     "box_x_max": row["box_x_max"],

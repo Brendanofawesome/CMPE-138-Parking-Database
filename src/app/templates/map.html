@@ -163,6 +163,7 @@
         rect.setAttribute("height", height);
         rect.setAttribute("class", `spot ${normalizeSpotType(spot.type)}`);
         rect.dataset.spotId = spot.spot_id;
+        rect.dataset.locationId = spot.location_id;
         rect.dataset.label = spotLabel(spot);
 
         rect.addEventListener("pointerenter", (e) => {
@@ -341,6 +342,7 @@
 
   <script>
   let selectedSpotId = null;
+  let selectedLocationId = null;
   let selectedSpotElement = null;
 
   const overlayEl = document.getElementById("spotOverlay");
@@ -363,8 +365,9 @@
 
     selectedSpotElement = spot;
     selectedSpotId = spot.dataset.spotId;
+    selectedLocationId = spot.dataset.locationId;
 
-    if (!selectedSpotId) {
+    if (!selectedSpotId || !selectedLocationId) {
       return;
     }
 
@@ -406,7 +409,7 @@
   }
 
   bookButton.addEventListener("click", async () => {
-    if (!selectedSpotId) {
+    if (!selectedSpotId || !selectedLocationId) {
       return;
     }
 
@@ -418,7 +421,8 @@
           "X-CSRFToken": "{{ csrf_token() }}"
         },
         body: JSON.stringify({
-          spot_id: selectedSpotId
+          spot_id: selectedSpotId,
+          location_id: Number(selectedLocationId)
         })
       });
 
@@ -436,6 +440,7 @@
       bookButton.disabled = true;
 
       selectedSpotId = null;
+      selectedLocationId = null;
       selectedSpotElement = null;
       window.location.href = result.payments_url || "/payments";
     } catch (error) {
