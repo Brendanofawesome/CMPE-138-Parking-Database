@@ -80,6 +80,20 @@
             <p><strong>User ID:</strong> {{ vehicle.user_id }}</p>
         </div>
 
+        <div class="card">
+            <h2>Latest Parking Session</h2>
+            {% if session %}
+                <p><strong>Session ID:</strong> {{ session.session_id }}</p>
+                <p><strong>Spot ID:</strong> {{ session.spot_id }}</p>
+                <p><strong>Status:</strong> {{ session.status }}</p>
+                <p><strong>Started At:</strong> {{ session.started_at }}</p>
+                <p><strong>Ended At:</strong> {{ session.ended_at or "N/A" }}</p>
+                <p><strong>Hourly Rate:</strong> ${{ "%.2f"|format(session.hourly_rate) }}</p>
+            {% else %}
+                <p>No parking session found for this vehicle's owner.</p>
+            {% endif %}
+        </div>
+
         <form method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="plate" value="{{ vehicle.Licence_Value }}">
@@ -96,10 +110,13 @@
                         <tr>
                             <th>Fee ID</th>
                             <th>Type</th>
+                            <th>Session ID</th>
                             <th>Amount</th>
+                            <th>Payment Status</th>
                             <th>Description</th>
                             <th>Created At</th>
                             <th>Valid Until</th>
+                            <th>Paid At</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -107,10 +124,13 @@
                         <tr>
                             <td>{{ fee.fee_id }}</td>
                             <td>{{ fee.fee_type }}</td>
+                            <td>{{ fee.session_id or "N/A" }}</td>
                             <td>${{ "%.2f"|format(fee.amount) }}</td>
+                            <td>{{ fee.payment_status }}</td>
                             <td>{{ fee.description or "N/A" }}</td>
                             <td>{{ fee.created_at | datetimeformat }}</td>
                             <td>{{ fee.valid_until | datetimeformat }}</td>
+                            <td>{{ fee.paid_at or "N/A" }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -126,8 +146,11 @@
             <h2>Newly Issued Ticket</h2>
             <p><strong>Fee ID:</strong> {{ issued_fee.fee_id }}</p>
             <p><strong>Type:</strong> {{ issued_fee.fee_type }}</p>
+            <p><strong>Session ID:</strong> {{ issued_fee.session_id or "N/A" }}</p>
             <p><strong>Amount:</strong> ${{ "%.2f"|format(issued_fee.amount) }}</p>
             <p><strong>Description:</strong> {{ issued_fee.description }}</p>
+            <p><strong>Created At:</strong> {{ issued_fee.created_at | datetimeformat }}</p>
+            <p><strong>Valid Until:</strong> {{ issued_fee.valid_until | datetimeformat }}</p>
         </div>
     {% endif %}
 </body>
