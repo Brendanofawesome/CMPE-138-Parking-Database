@@ -2,9 +2,8 @@ from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, request, jsonify, g, Response, url_for
 
-from sqlite3 import Connection
-
-from app.payments import create_fee, create_parking_session, ensure_user_vehicle, get_spot_hourly_rate
+from app.payments import create_fee, create_parking_session, get_spot_hourly_rate
+from app.vehicles import user_owns_vehicle
 
 booking_bp = Blueprint("booking", __name__)
 
@@ -51,10 +50,7 @@ def book_spot() -> Response:
     spot_id = data.get("spot_id") if data else None
     location_id_raw = data.get("location_id") if data else None
     hours_raw = data.get("hours") if data else None
-    licence_value_raw = data.get("licence_value") if data else None
-    licence_state_raw = data.get("licence_state") if data else None
-    
-    db_connection: Connection = g.current_db_conn
+    vehicle_raw = data.get("vehicle") if data else None
 
     if not spot_id:
         response = jsonify({"error": "Missing spot_id."})
@@ -73,6 +69,14 @@ def book_spot() -> Response:
         response.status_code = 400
         return response
 
+
+    if not vehicle_raw or "|" not in str(vehicle_raw):
+        response = jsonify({"error": "Please select a saved vehicle."})
+        response.status_code = 400
+        return response
+
+    licence_value, licence_state = str(vehicle_raw).split("|", 1)
+
     try:
         hours = _parse_hours(hours_raw)
     except ValueError as error:
@@ -80,22 +84,17 @@ def book_spot() -> Response:
         response.status_code = 400
         return response
 
-    try:
-        licence_value = _parse_licence_field(licence_value_raw, "licence_value")
-        licence_state = _parse_licence_field(licence_state_raw, "licence_state")
-    except ValueError as error:
-        response = jsonify({"error": str(error)})
+    user_id = g.current_user["user_id"]
+
+    if not user_owns_vehicle(int(user_id), licence_value, licence_state):
+        response = jsonify({"error": "Selected vehicle is not saved to your profile."})
         response.status_code = 400
         return response
 
     user_id = g.current_user["user_id"]
+    db_connection = g.current_db_conn
 
     try:
-        ensure_user_vehicle(
-            user_id=user_id,
-            licence_value=licence_value,
-            licence_state=licence_state,
-        )
         
         hourly_rate = get_spot_hourly_rate(location_id=location_id, spot_id=spot_id)
         computed_cost = float((Decimal(str(hourly_rate)) * hours).quantize(Decimal("0.01")))

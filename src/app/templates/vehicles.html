@@ -1,0 +1,75 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Vehicles{% endblock %}
+
+{% block content %}
+  <h1 class="app-title auth-title">Saved Vehicles</h1>
+  <p class="app-muted auth-lede">Save a vehicle to your profile, then choose it when booking a parking spot.</p>
+
+  {% if save_error %}
+    <p class="error-message">{{ save_error }}</p>
+  {% endif %}
+  {% if save_success %}
+    <p class="success-message">{{ save_success }}</p>
+  {% endif %}
+  {% if delete_success %}
+    <p class="success-message">{{ delete_success }}</p>
+  {% endif %}
+
+  <section class="payments-section">
+    <h2 class="section-title">Add Vehicle</h2>
+    <form method="POST" action="{{ url_for('vehicles.create_vehicle') }}" class="vehicle-form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <label>
+        Make
+        <input type="text" name="make" required />
+      </label>
+      <label>
+        Model
+        <input type="text" name="model" required />
+      </label>
+      <label>
+        Color
+        <input type="text" name="color" />
+      </label>
+      <label>
+        Plate Value
+        <input type="text" name="licence_value" required />
+      </label>
+      <label>
+        Plate State
+        <input type="text" name="licence_state" maxlength="10" required />
+      </label>
+      <div class="vehicle-form-actions">
+        <button type="submit">Save Vehicle</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="payments-section">
+    <h2 class="section-title">Your Vehicles</h2>
+    {% if vehicles %}
+      <ul class="payments-list">
+        {% for vehicle in vehicles %}
+          <li class="payments-item">
+            <div>
+              <strong>{{ vehicle.make }} {{ vehicle.model }}</strong><br />
+              <span class="app-muted">{{ vehicle.color or 'No color set' }}</span><br />
+              <span class="app-muted">{{ vehicle.licence_value }} ({{ vehicle.licence_state }})</span>
+            </div>
+            <form method="POST" action="{{ url_for('vehicles.remove_vehicle') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <input type="hidden" name="licence_value" value="{{ vehicle.licence_value }}" />
+              <input type="hidden" name="licence_state" value="{{ vehicle.licence_state }}" />
+              <button type="submit">Remove</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="app-muted">No saved vehicles yet.</p>
+    {% endif %}
+  </section>
+
+  <p class="footer app-muted"><a class="app-link" href="{{ url_for('home') }}">Back to map</a></p>
+{% endblock %}

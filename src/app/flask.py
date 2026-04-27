@@ -21,6 +21,7 @@ from app.pages.statistics import statistics_bp
 from app.pages.booking import booking_bp
 from app.pages.payments import payments_bp
 from app.pages.parking_sessions import parking_sessions_bp
+from app.pages.vehicles import vehicles_bp
 
 csrf: CSRFProtect = CSRFProtect()
 
@@ -40,6 +41,7 @@ def register_pages(app: Flask) -> None:
     app.register_blueprint(booking_bp)
     app.register_blueprint(payments_bp)
     app.register_blueprint(parking_sessions_bp)
+    app.register_blueprint(vehicles_bp)
 
 
 # runs when someone accesses a page

@@ -44,6 +44,7 @@ class ActiveParkingSession:
     session_id: int
     spot_id: str
     lot_name: str
+    vehicle_label: str
     status: str
     started_at: str
     hourly_rate: float
@@ -137,23 +138,8 @@ def create_parking_session(
     licence_state: str,
     status: str | None = None
 ) -> int:
-    session_started_at =  _utc_now_iso()
+    session_started_at = _utc_now_iso()
     _resolve_spot_hourly_cost_cents(conn, location_id, spot_id)
-    
-    vehicle_row = conn.execute(
-        """
-        SELECT 1
-        FROM vehicle
-        WHERE user_id = ?
-            AND Licence_Value = ?
-            AND Licence_State = ?
-        """,
-        (user_id, licence_value, licence_state),
-    ).fetchone()
-    
-    if vehicle_row is None:
-        raise ValueError("Vehicle for this user and license plate does not exist.")
-
     cursor = conn.execute(
         """
         INSERT INTO parking_session (
@@ -203,7 +189,6 @@ def create_fee(
         """,
         (user_id, None, session_id, created_at, valid_until, cost, description, "regular_session"),
     )
-
     lastrowid = cursor.lastrowid
     if lastrowid is None:
         raise RuntimeError("Failed to create fee: no row id returned.")
@@ -315,6 +300,7 @@ def get_active_sessions(user_id: int) -> list[ActiveParkingSession]:
                 ps.spot_id,
                 ps.status,
                 ps.started_at,
+                COALESCE(ps.Licence_Value || " (" || ps.Licence_State || ")", "Unknown Vehicle") AS vehicle_label,
                 COALESCE(fee_total.total_amount, 0) AS amount,
                 COALESCE(l.lot_name, 'Unknown Lot') AS lot_name,
                 COALESCE(l.hourly_cost_cents, 0) / 100.0 AS hourly_rate,
@@ -353,6 +339,7 @@ def get_active_sessions(user_id: int) -> list[ActiveParkingSession]:
             session_id=int(row["session_id"]),
             spot_id=str(row["spot_id"]),
             lot_name=str(row["lot_name"]),
+            vehicle_label=str(row["vehicle_label"]),
             status=str(row["status"]),
             started_at=format_utc_timestamp(int(row["started_at"])),
             hourly_rate=float(row["hourly_rate"]),
