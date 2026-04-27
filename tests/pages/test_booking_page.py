@@ -67,7 +67,12 @@ def test_book_spot_rejects_invalid_hours(booking_app, hours, error_text):
     app, db_path = booking_app
     session_cookie = _login_cookie(db_path)
 
-    payload = {"spot_id": "A1", "location_id": 1}
+    payload = {
+        "spot_id": "A1",
+        "location_id": 1,
+        "licence_value": "BOOK123",
+        "licence_state": "CA",
+    }
     if hours is not None:
         payload["hours"] = hours
 
@@ -88,7 +93,13 @@ def test_book_spot_accepts_half_hour_increments_and_computes_fee(booking_app, ho
         client.set_cookie("session_id", session_cookie)
         response = client.post(
             "/book-spot",
-            json={"spot_id": "A1", "location_id": 1, "hours": hours},
+            json={
+                "spot_id": "A1",
+                "location_id": 1,
+                "hours": hours,
+                "licence_value": "BOOK123",
+                "licence_state": "CA",
+            },
         )
 
     assert response.status_code == 200
@@ -103,6 +114,18 @@ def test_book_spot_accepts_half_hour_increments_and_computes_fee(booking_app, ho
             "SELECT amount FROM fee WHERE fee_id = ?",
             (data["fee_id"],),
         ).fetchone()
+        vehicle_row = conn.execute(
+            "SELECT user_id FROM vehicle WHERE Licence_Value = ? AND Licence_State = ?",
+            ("BOOK123", "CA"),
+        ).fetchone()
+        session_row = conn.execute(
+            "SELECT Licence_Value, Licence_State FROM parking_session WHERE session_id = ?",
+            (data["session_id"],),
+        ).fetchone()
 
     assert fee_row is not None
     assert float(fee_row["amount"]) == expected_cost
+    assert vehicle_row is not None
+    assert session_row is not None
+    assert str(session_row["Licence_Value"]) == "BOOK123"
+    assert str(session_row["Licence_State"]) == "CA"

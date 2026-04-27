@@ -2,7 +2,7 @@ from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, request, jsonify, g, Response, url_for
 
-from app.payments import create_fee, create_parking_session, get_spot_hourly_rate
+from app.payments import create_fee, create_parking_session, ensure_user_vehicle, get_spot_hourly_rate
 
 booking_bp = Blueprint("booking", __name__)
 
@@ -27,6 +27,17 @@ def _parse_hours(hours_raw: object) -> Decimal:
 
     return hours
 
+
+def _parse_licence_field(value_raw: object, field_name: str) -> str:
+    if value_raw is None:
+        raise ValueError(f"Missing {field_name}.")
+
+    value = str(value_raw).strip().upper()
+    if not value:
+        raise ValueError(f"Missing {field_name}.")
+
+    return value
+
 @booking_bp.route("/book-spot", methods=["POST"])
 def book_spot() -> Response:
     if g.current_user is None:
@@ -38,6 +49,8 @@ def book_spot() -> Response:
     spot_id = data.get("spot_id") if data else None
     location_id_raw = data.get("location_id") if data else None
     hours_raw = data.get("hours") if data else None
+    licence_value_raw = data.get("licence_value") if data else None
+    licence_state_raw = data.get("licence_state") if data else None
 
     if not spot_id:
         response = jsonify({"error": "Missing spot_id."})
@@ -63,13 +76,28 @@ def book_spot() -> Response:
         response.status_code = 400
         return response
 
+    try:
+        licence_value = _parse_licence_field(licence_value_raw, "licence_value")
+        licence_state = _parse_licence_field(licence_state_raw, "licence_state")
+    except ValueError as error:
+        response = jsonify({"error": str(error)})
+        response.status_code = 400
+        return response
+
     user_id = g.current_user["user_id"]
 
     try:
+        ensure_user_vehicle(
+            user_id=user_id,
+            licence_value=licence_value,
+            licence_state=licence_state,
+        )
         session_id = create_parking_session(
             user_id=user_id,
             spot_id=spot_id,
-            location_id=location_id
+            location_id=location_id,
+            licence_value=licence_value,
+            licence_state=licence_state,
         )
         hourly_rate = get_spot_hourly_rate(location_id=location_id, spot_id=spot_id)
     except ValueError as error:
@@ -92,6 +120,8 @@ def book_spot() -> Response:
         "session_id": session_id,
         "spot_id": spot_id,
         "location_id": location_id,
+        "licence_value": licence_value,
+        "licence_state": licence_state,
         "hours": float(hours),
         "cost": computed_cost,
         "fee_id": fee_id,

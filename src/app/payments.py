@@ -101,21 +101,81 @@ def get_spot_hourly_rate(location_id: int, spot_id: str) -> float:
         return _resolve_spot_hourly_cost_cents(conn, location_id, spot_id) / 100.0
 
 
+def ensure_user_vehicle(user_id: int, licence_value: str, licence_state: str) -> None:
+    with get_connection() as conn:
+        vehicle_row = conn.execute(
+            """
+            SELECT user_id
+            FROM vehicle
+            WHERE Licence_Value = ?
+              AND Licence_State = ?
+            """,
+            (licence_value, licence_state),
+        ).fetchone()
+
+        if vehicle_row is None:
+            conn.execute(
+                """
+                INSERT INTO vehicle (user_id, color, make, model, Licence_Value, Licence_State)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (user_id, None, "Unknown", "Unknown", licence_value, licence_state),
+            )
+            conn.commit()
+            return
+
+        if int(vehicle_row["user_id"]) != user_id:
+            raise ValueError("License plate is already registered to another user.")
+
+
 def create_parking_session(
     user_id: int,
     spot_id: str,
     location_id: int,
+    licence_value: str,
+    licence_state: str,
     status: str | None = None
 ) -> int:
     session_started_at =  _utc_now_iso()
     with get_connection() as conn:
         _resolve_spot_hourly_cost_cents(conn, location_id, spot_id)
+        vehicle_row = conn.execute(
+            """
+            SELECT 1
+            FROM vehicle
+            WHERE user_id = ?
+              AND Licence_Value = ?
+              AND Licence_State = ?
+            """,
+            (user_id, licence_value, licence_state),
+        ).fetchone()
+        if vehicle_row is None:
+            raise ValueError("Vehicle for this user and license plate does not exist.")
+
         cursor = conn.execute(
             """
-            INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO parking_session (
+                Licence_Value,
+                Licence_State,
+                user_id,
+                location_id,
+                spot_id,
+                status,
+                started_at,
+                ended_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, location_id, spot_id, status, session_started_at, None),
+            (
+                licence_value,
+                licence_state,
+                user_id,
+                location_id,
+                spot_id,
+                status,
+                session_started_at,
+                None,
+            ),
         )
 
         conn.commit()
@@ -137,10 +197,10 @@ def create_fee(
         valid_until = created_at + int(valid_for_hours * Decimal(60 * 60))
         cursor = conn.execute(
             """
-            INSERT INTO fee (vehicle_id, user_id, parent_fee_id, session_id, created_at, valid_until, amount, description, fee_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO fee (user_id, parent_fee_id, session_id, created_at, valid_until, amount, description, fee_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (0, user_id, None, session_id, created_at, valid_until, cost, description, "regular_session"),
+            (user_id, None, session_id, created_at, valid_until, cost, description, "regular_session"),
         )
         conn.commit()
         lastrowid = cursor.lastrowid
