@@ -14,8 +14,6 @@ register_table(
             SQLColumn(name="user_id", attribute_list="INTEGER NOT NULL"),
             SQLColumn(name="location_id", attribute_list="INTEGER"),
             SQLColumn(name="spot_id", attribute_list="TEXT NOT NULL"),
-            SQLColumn(name="Licence_Value", attribute_list="TEXT NOT NULL"),
-            SQLColumn(name="Licence_State", attribute_list="TEXT NOT NULL"),
             SQLColumn(name="status", attribute_list="TEXT"),
             SQLColumn(name="started_at", attribute_list="TEXT NOT NULL"),
             SQLColumn(name="ended_at", attribute_list="TEXT"),
