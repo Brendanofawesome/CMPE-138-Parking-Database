@@ -84,7 +84,7 @@ def map_page() -> ResponseReturnValue:
             if current_user is not None:
                 vehicle_rows = db.execute(
                     """
-                    SELECT Licence_Value, Licence_State, make, model
+                    SELECT Licence_Value, Licence_State, color, make, model
                     FROM vehicle
                     WHERE user_id = ?
                     ORDER BY Licence_State, Licence_Value

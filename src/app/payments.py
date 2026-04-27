@@ -206,7 +206,6 @@ def get_outstanding_fees(user_id: int) -> list[OutstandingFee]:
             session_id=row["session_id"],
             description=str(row["description"]),
             cost=float(row["cost"]),
-            vehicle_label=str(row["vehicle_label"] if "vehicle_label" in row.keys() else "Unknown Vehicle"),
             status=str(row["status"]),
             valid_until=row["valid_until"],
             created_at=str(row["created_at"]),
