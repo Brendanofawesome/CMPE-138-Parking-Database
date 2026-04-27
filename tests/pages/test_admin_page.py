@@ -32,7 +32,8 @@ def test_admin_plate_check_page_renders_form(admin_app):
 
     assert response.status_code == 200
     assert b"Plate Checking & Ticketing" in response.data
-    assert b"Enter License Plate" in response.data
+    assert b"License Plate" in response.data
+    assert b"State" in response.data
     assert b"Check Plate" in response.data
 
 

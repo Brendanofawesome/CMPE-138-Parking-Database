@@ -39,9 +39,9 @@ def plate_check_page():
 
         vehicle = db.execute(
             """
-            SELECT Licence_Value, Licence_State, Make, Color, Model, user_id
+            SELECT license_plate_value, license_plate_state, Make, Color, Model, user_id
             FROM vehicle
-            WHERE Licence_Value = ? AND Licence_State = ?
+            WHERE license_plate_value = ? AND license_plate_state = ?
             """,
             (plate_input, plate_state),
         ).fetchone()
@@ -81,10 +81,10 @@ def plate_check_page():
                     p.paid_at
                 FROM fee f
                 LEFT JOIN payment p ON p.fee_id = f.fee_id
-                WHERE f.Licence_Value = ? AND f.Licence_State = ? AND f.user_id = ?
+                WHERE f.license_plate_value = ? AND f.license_plate_state = ? AND f.user_id = ?
                 ORDER BY f.created_at DESC, f.fee_id DESC
                 """,
-                (vehicle["Licence_Value"], vehicle["Licence_State"], vehicle["user_id"]),
+                (vehicle["license_plate_value"], vehicle["license_plate_state"], vehicle["user_id"]),
             ).fetchall()
 
             if action == "issue_ticket":
@@ -92,8 +92,8 @@ def plate_check_page():
                     """
                     SELECT fee_id
                     FROM fee
-                    WHERE Licence_Value = ?
-                      AND Licence_State = ?
+                    WHERE license_plate_value = ?
+                      AND license_plate_state = ?
                       AND user_id = ?
                       AND fee_type = 'violation'
                       AND (
@@ -103,8 +103,8 @@ def plate_check_page():
                     LIMIT 1
                     """,
                     (
-                        vehicle["Licence_Value"],
-                        vehicle["Licence_State"],
+                        vehicle["license_plate_value"],
+                        vehicle["license_plate_state"],
                         vehicle["user_id"],
                         session["session_id"] if session else None,
                         session["session_id"] if session else None,
@@ -121,8 +121,8 @@ def plate_check_page():
                     db.execute(
                         """
                         INSERT INTO fee (
-                            Licence_Value,
-                            Licence_State,
+                            license_plate_value,
+                            license_plate_state,
                             user_id,
                             parent_fee_id,
                             session_id,
@@ -135,8 +135,8 @@ def plate_check_page():
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
-                            vehicle["Licence_Value"],
-                            vehicle["Licence_State"],
+                            vehicle["license_plate_value"],
+                            vehicle["license_plate_state"],
                             vehicle["user_id"],
                             None,
                             session["session_id"] if session else None,
@@ -160,15 +160,15 @@ def plate_check_page():
                             f.fee_type,
                             f.session_id
                         FROM fee f
-                        WHERE f.Licence_Value = ?
-                          AND f.Licence_State = ?
+                        WHERE f.license_plate_value = ?
+                          AND f.license_plate_state = ?
                           AND f.user_id = ?
                         ORDER BY f.fee_id DESC
                         LIMIT 1
                         """,
                         (
-                            vehicle["Licence_Value"],
-                            vehicle["Licence_State"],
+                            vehicle["license_plate_value"],
+                            vehicle["license_plate_state"],
                             vehicle["user_id"],
                         ),
                     ).fetchone()
@@ -190,12 +190,12 @@ def plate_check_page():
                             p.paid_at
                         FROM fee f
                         LEFT JOIN payment p ON p.fee_id = f.fee_id
-                        WHERE f.Licence_Value = ? AND f.Licence_State = ? AND f.user_id = ?
+                        WHERE f.license_plate_value = ? AND f.license_plate_state = ? AND f.user_id = ?
                         ORDER BY f.created_at DESC, f.fee_id DESC
                         """,
                         (
-                            vehicle["Licence_Value"],
-                            vehicle["Licence_State"],
+                            vehicle["license_plate_value"],
+                            vehicle["license_plate_state"],
                             vehicle["user_id"],
                         ),
                     ).fetchall()
