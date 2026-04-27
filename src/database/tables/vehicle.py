@@ -18,7 +18,10 @@ register_table(
         primary_key=("license_plate_value", "license_plate_state"),
 
         extra_constraints=(
-            SQLColumn(name='fk_vehicle_user', attribute_list='FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE'),
+            SQLColumn(
+                name='fk_vehicle_user',
+                attribute_list='FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE'
+            ),
         )
     )
 )

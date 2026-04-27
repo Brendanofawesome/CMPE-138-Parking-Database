@@ -10,10 +10,14 @@ from typing import Callable
 from flask import Flask, g, request
 from flask_wtf.csrf import CSRFProtect
 
-#import all the pages
+# import all the pages
+from app.pages.admin import admin_bp
+from app.pages.booking import booking_bp
 from app.pages.create_account import create_account_bp
 from app.pages.login import login_bp
 from app.pages.map import map_bp
+from app.pages.staff import staff_bp
+from app.pages.statistics import statistics_bp
 from app.pages.booking import booking_bp
 from app.pages.payments import payments_bp
 from app.pages.parking_sessions import parking_sessions_bp
@@ -22,16 +26,23 @@ csrf: CSRFProtect = CSRFProtect()
 
 from .auth import load_current_user
 
-#register all your pages here
+csrf: CSRFProtect = CSRFProtect()
+
+
+# register all your pages here
 def register_pages(app: Flask) -> None:
     app.register_blueprint(map_bp)
     app.register_blueprint(login_bp)
     app.register_blueprint(create_account_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(statistics_bp)
+    app.register_blueprint(staff_bp)
     app.register_blueprint(booking_bp)
     app.register_blueprint(payments_bp)
     app.register_blueprint(parking_sessions_bp)
 
-#runs when someone accesses a page
+
+# runs when someone accesses a page
 def get_db(app: Flask) -> sqlite3.Connection:
     db: sqlite3.Connection | None = g.get("current_db_conn")
     if db is None:
@@ -44,7 +55,8 @@ def get_db(app: Flask) -> sqlite3.Connection:
         raise RuntimeError("GET_DATABASE function did not return a sqlite3.Connection")
     return db
 
-#runs when someone closes a page
+
+# runs when someone closes a page
 def close_db(_exception: BaseException | None = None) -> None:
     db = g.pop("current_db_conn", None)
     if db is not None:
@@ -71,7 +83,7 @@ def create_app(get_connection: Callable[[], sqlite3.Connection]) -> Flask:
         g.current_user = load_current_user(db, request.cookies.get(session_cookie_name))
         if g.current_user is not None:
             app.logger.debug("authenticated user %s from cookie", g.current_user["user_id"])
-    
+
     register_pages(app)
 
     app.add_url_rule("/", endpoint="home", view_func=app.view_functions["map.map_page"])

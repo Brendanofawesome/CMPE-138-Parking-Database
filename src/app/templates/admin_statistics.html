@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parking Statistics</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+
+        h1, h2 {
+            margin-bottom: 1rem;
+        }
+
+        .cards {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 1rem;
+            min-width: 180px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Parking Statistics</h1>
+
+    <div class="cards">
+        <div class="card">
+            <h3>Total Locations</h3>
+            <p>{{ summary.total_locations or 0 }}</p>
+        </div>
+        <div class="card">
+            <h3>Total Spots</h3>
+            <p>{{ summary.total_spots or 0 }}</p>
+        </div>
+        <div class="card">
+            <h3>Active Spots</h3>
+            <p>{{ summary.active_spots or 0 }}</p>
+        </div>
+        <div class="card">
+            <h3>Inactive Spots</h3>
+            <p>{{ summary.inactive_spots or 0 }}</p>
+        </div>
+    </div>
+
+    <h2>Locations</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Location ID</th>
+                <th>Lot Name</th>
+                <th>Cost</th>
+                <th>Total Spots</th>
+                <th>Active Spots</th>
+                <th>Inactive Spots</th>
+                <th>Manager Contact</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for location in locations %}
+            <tr>
+                <td>{{ location.location_id }}</td>
+                <td>{{ location.lot_name }}</td>
+                <td>${{ "%.2f"|format((location.cost_cents or 0) / 100) }}</td>
+                <td>{{ location.total_spots or 0 }}</td>
+                <td>{{ location.active_spots or 0 }}</td>
+                <td>{{ location.inactive_spots or 0 }}</td>
+                <td>{{ location.manager_contact or "N/A" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
