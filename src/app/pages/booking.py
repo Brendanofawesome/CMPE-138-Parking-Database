@@ -2,6 +2,8 @@ from decimal import Decimal, InvalidOperation
 
 from flask import Blueprint, request, jsonify, g, Response, url_for
 
+from sqlite3 import Connection
+
 from app.payments import create_fee, create_parking_session, ensure_user_vehicle, get_spot_hourly_rate
 
 booking_bp = Blueprint("booking", __name__)
@@ -51,6 +53,8 @@ def book_spot() -> Response:
     hours_raw = data.get("hours") if data else None
     licence_value_raw = data.get("licence_value") if data else None
     licence_state_raw = data.get("licence_state") if data else None
+    
+    db_connection: Connection = g.current_db_conn
 
     if not spot_id:
         response = jsonify({"error": "Missing spot_id."})
@@ -92,28 +96,41 @@ def book_spot() -> Response:
             licence_value=licence_value,
             licence_state=licence_state,
         )
-        session_id = create_parking_session(
-            user_id=user_id,
-            spot_id=spot_id,
-            location_id=location_id,
-            licence_value=licence_value,
-            licence_state=licence_state,
-        )
+        
         hourly_rate = get_spot_hourly_rate(location_id=location_id, spot_id=spot_id)
+        computed_cost = float((Decimal(str(hourly_rate)) * hours).quantize(Decimal("0.01")))
+        
+        #enter sql transaction to ensure that session and fee are created atomically
+        db_connection.execute("BEGIN")
+        
+        session_id = create_parking_session(
+                conn=db_connection,
+                user_id=user_id,
+                spot_id=spot_id,
+                location_id=location_id,
+                licence_value=licence_value,
+                licence_state=licence_state,
+            )
+
+        fee_id = create_fee(
+            conn=db_connection,
+            user_id=user_id,
+            session_id=session_id,
+            description="Normal Reservation",
+            cost=computed_cost,
+            valid_for_hours=hours
+        )
+        #exit sql transaction
+        db_connection.execute("COMMIT")
+        
     except ValueError as error:
+        #rollback the transaction
+        db_connection.execute("ROLLBACK")
+        
         response = jsonify({"error": str(error)})
         response.status_code = 400
         return response
-
-    computed_cost = float((Decimal(str(hourly_rate)) * hours).quantize(Decimal("0.01")))
-
-    fee_id = create_fee(
-        user_id=user_id,
-        session_id=session_id,
-        description="Normal Reservation",
-        cost=computed_cost,
-        valid_for_hours=hours
-    )
+        
 
     return jsonify({
         "message": "Spot booked successfully.",
