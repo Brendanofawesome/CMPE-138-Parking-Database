@@ -64,6 +64,10 @@
     <div class="booking-controls">
       <label for="booking-hours">Hours</label>
       <input id="booking-hours" type="number" min="1" step="0.5" value="1" />
+      <label for="booking-licence-value">Plate</label>
+      <input id="booking-licence-value" type="text" maxlength="16" value="{{ initial_licence_value }}" />
+      <label for="booking-licence-state">State</label>
+      <input id="booking-licence-state" type="text" maxlength="8" value="{{ initial_licence_state }}" />
       <span id="selected-spot-text">No spot selected</span>
       <button id="book-spot-btn" class="book-button" disabled>
         Book Spot
@@ -365,6 +369,8 @@
   const selectedText = document.getElementById("selected-spot-text");
   const bookButton = document.getElementById("book-spot-btn");
   const hoursInput = document.getElementById("booking-hours");
+  const licenceValueInput = document.getElementById("booking-licence-value");
+  const licenceStateInput = document.getElementById("booking-licence-state");
   let pointerDownPos = null;
 
   function parseHours(rawValue) {
@@ -382,7 +388,10 @@
 
   function updateBookButtonState() {
     const hasSpotSelection = Boolean(selectedSpotId && selectedLocationId);
-    bookButton.disabled = !(hasSpotSelection && isValidHours(hoursInput?.value));
+    const hasLicence = Boolean(
+      licenceValueInput?.value?.trim() && licenceStateInput?.value?.trim()
+    );
+    bookButton.disabled = !(hasSpotSelection && hasLicence && isValidHours(hoursInput?.value));
   }
 
   function clearSelection(message = "No spot selected") {
@@ -460,9 +469,32 @@
     });
   }
 
+  if (licenceValueInput) {
+    licenceValueInput.addEventListener("input", () => {
+      licenceValueInput.value = licenceValueInput.value.toUpperCase();
+      updateBookButtonState();
+    });
+  }
+
+  if (licenceStateInput) {
+    licenceStateInput.addEventListener("input", () => {
+      licenceStateInput.value = licenceStateInput.value.toUpperCase();
+      updateBookButtonState();
+    });
+  }
+
   bookButton.addEventListener("click", async () => {
     const hours = parseHours(hoursInput?.value);
-    if (!selectedSpotId || !selectedLocationId || hours === null || !isValidHours(hours)) {
+    const licenceValue = licenceValueInput?.value?.trim()?.toUpperCase() || "";
+    const licenceState = licenceStateInput?.value?.trim()?.toUpperCase() || "";
+    if (
+      !selectedSpotId ||
+      !selectedLocationId ||
+      !licenceValue ||
+      !licenceState ||
+      hours === null ||
+      !isValidHours(hours)
+    ) {
       return;
     }
 
@@ -476,6 +508,8 @@
         body: JSON.stringify({
           spot_id: selectedSpotId,
           location_id: Number(selectedLocationId),
+          licence_value: licenceValue,
+          licence_state: licenceState,
           hours
         })
       });

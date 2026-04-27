@@ -72,11 +72,11 @@
     {% if vehicle %}
         <div class="card">
             <h2>Vehicle Details</h2>
-            <p><strong>Plate:</strong> {{ vehicle.license_plate_value }}</p>
-            <p><strong>State:</strong> {{ vehicle.license_plate_state }}</p>
-            <p><strong>Make:</strong> {{ vehicle.Make or "N/A" }}</p>
-            <p><strong>Model:</strong> {{ vehicle.Model or "N/A" }}</p>
-            <p><strong>Color:</strong> {{ vehicle.Color or "N/A" }}</p>
+            <p><strong>Plate:</strong> {{ vehicle.Licence_Value }}</p>
+            <p><strong>State:</strong> {{ vehicle.Licence_State }}</p>
+            <p><strong>Make:</strong> {{ vehicle.make or "N/A" }}</p>
+            <p><strong>Model:</strong> {{ vehicle.model or "N/A" }}</p>
+            <p><strong>Color:</strong> {{ vehicle.color or "N/A" }}</p>
             <p><strong>User ID:</strong> {{ vehicle.user_id }}</p>
         </div>
 
@@ -96,8 +96,8 @@
 
         <form method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="plate" value="{{ vehicle.license_plate_value }}">
-            <input type="hidden" name="state" value="{{ vehicle.license_plate_state }}">
+            <input type="hidden" name="plate" value="{{ vehicle.Licence_Value }}">
+            <input type="hidden" name="state" value="{{ vehicle.Licence_State }}">
             <button type="submit" name="action" value="issue_ticket">Issue Violation Ticket</button>
         </form>
 

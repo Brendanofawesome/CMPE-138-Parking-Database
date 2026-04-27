@@ -12,10 +12,10 @@ register_table(
             SQLColumn(name='color', attribute_list='TEXT'),
             SQLColumn(name='make', attribute_list='TEXT NOT NULL'),
             SQLColumn(name='model', attribute_list='TEXT NOT NULL'),
-            SQLColumn(name='license_plate_value', attribute_list='TEXT NOT NULL'),
-            SQLColumn(name='license_plate_state', attribute_list='TEXT NOT NULL')
+            SQLColumn(name='Licence_Value', attribute_list='TEXT NOT NULL'),
+            SQLColumn(name='Licence_State', attribute_list='TEXT NOT NULL')
         ),
-        primary_key=("license_plate_value", "license_plate_state"),
+        primary_key=("Licence_Value", "Licence_State"),
 
         extra_constraints=(
             SQLColumn(
