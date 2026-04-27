@@ -27,7 +27,7 @@ def statistics_page():
         SELECT
             l.location_id,
             l.lot_name,
-            l.cost_cents,
+            l.hourly_cost_cents,
             l.manager_contact,
             COUNT(ps.spot_id) AS total_spots,
             SUM(CASE WHEN ps.active = 1 THEN 1 ELSE 0 END) AS active_spots,
@@ -35,7 +35,7 @@ def statistics_page():
         FROM location l
         LEFT JOIN parking_spot ps
             ON l.location_id = ps.location_id
-        GROUP BY l.location_id, l.lot_name, l.cost_cents, l.manager_contact
+        GROUP BY l.location_id, l.lot_name, l.hourly_cost_cents, l.manager_contact
         ORDER BY l.location_id
         """
     ).fetchall()
