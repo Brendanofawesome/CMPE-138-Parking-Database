@@ -48,7 +48,7 @@ def db_conn() -> Iterator[sqlite3.Connection]:
             lot_name TEXT NOT NULL,
             manager INTEGER,
             manager_contact TEXT,
-            cost_cents INTEGER NOT NULL,
+            hourly_cost_cents INTEGER NOT NULL,
             x_coordinate INTEGER NOT NULL,
             y_coordinate INTEGER NOT NULL,
             data_name TEXT NOT NULL UNIQUE

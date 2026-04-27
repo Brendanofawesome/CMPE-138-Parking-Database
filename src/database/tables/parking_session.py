@@ -7,11 +7,11 @@ register_table(
         columns=(
             SQLColumn(name="session_id", attribute_list="INTEGER PRIMARY KEY AUTOINCREMENT"),
             SQLColumn(name="user_id", attribute_list="INTEGER NOT NULL"),
+            SQLColumn(name="location_id", attribute_list="INTEGER"),
             SQLColumn(name="spot_id", attribute_list="TEXT NOT NULL"),
-            SQLColumn(name="status", attribute_list="TEXT NOT NULL DEFAULT 'ON_HOLD'"),
+            SQLColumn(name="status", attribute_list="TEXT"),
             SQLColumn(name="started_at", attribute_list="TEXT NOT NULL"),
             SQLColumn(name="ended_at", attribute_list="TEXT"),
-            SQLColumn(name="hourly_rate", attribute_list="REAL NOT NULL CHECK(hourly_rate >= 0)"),
         ),
         extra_constraints=(
             SQLColumn(name="fk_user_id_users", attribute_list="FOREIGN KEY (user_id) REFERENCES user(user_id)"),

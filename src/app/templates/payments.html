@@ -1,0 +1,58 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Payments{% endblock %}
+
+{% block content %}
+  <h1 class="app-title auth-title">Payments</h1>
+  <p class="app-muted auth-lede">Review outstanding fees and recent transactions.</p>
+
+  <section class="payments-section">
+    <h2 class="section-title">Outstanding Fees</h2>
+    {% if outstanding_fees %}
+      <ul class="payments-list">
+        {% for fee in outstanding_fees %}
+          <li class="payments-item">
+            <div>
+              <strong>{{ fee.description }}</strong><br />
+              <span class="app-muted">Fee #{{ fee.fee_id }}{% if fee.session_id %} | Session #{{ fee.session_id }}{% endif %}</span>
+            </div>
+            <div>
+              <strong>${{ "%.2f"|format(fee.cost) }}</strong>
+            </div>
+            <form method="post" action="{{ url_for('payments.pay_fee', fee_id=fee.fee_id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <button type="submit">Pay</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+      <p><strong>Total Due:</strong> ${{ "%.2f"|format(total_due) }}</p>
+    {% else %}
+      <p class="app-muted">No outstanding fees.</p>
+    {% endif %}
+  </section>
+
+  <section class="payments-section">
+    <h2 class="section-title">Transaction History</h2>
+    {% if transactions %}
+      <ul class="payments-list">
+        {% for tx in transactions %}
+          <li class="payments-item">
+            <div>
+              <strong>{{ tx.description }}</strong><br />
+              <span class="app-muted">Payment #{{ tx.payment_id }} | Method: {{ tx.method }}</span>
+            </div>
+            <div>
+              <strong>${{ "%.2f"|format(tx.amount) }}</strong>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+      <p><strong>Total Paid:</strong> ${{ "%.2f"|format(total_paid) }}</p>
+    {% else %}
+      <p class="app-muted">No payments recorded yet.</p>
+    {% endif %}
+  </section>
+
+  <p class="footer app-muted"><a class="app-link" href="{{ url_for('home') }}">Back to map</a></p>
+{% endblock %}

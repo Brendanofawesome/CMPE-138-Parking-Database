@@ -15,6 +15,8 @@
     <nav class="topbar-auth" aria-label="Authentication">
       {% if is_logged_in %}
         <span class="username">Signed in as {{ username }}</span>
+        <a class="app-link" href="{{ url_for('payments.payments_page') }}">Payments</a>
+        <a class="app-link" href="{{ url_for('parking_sessions.parking_sessions_page') }}">Parking Sessions</a>
         <form action="{{ url_for('login.logout') }}" method="POST">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <button type="submit">Logout</button>
@@ -55,18 +57,22 @@
       <span class="chip"><span class="swatch" style="background: var(--regular);"></span>Regular</span>
       <span class="chip"><span class="swatch" style="background: var(--handicap);"></span>Handicap</span>
       <span class="chip"><span class="swatch" style="background: var(--special);"></span>Special</span>
+      <span class="chip"><span class="swatch" style="background: var(--booked);"></span>Booked</span>
+      <span class="chip"><span class="swatch" style="background: var(--your-booking);"></span>Your Booking</span>
     </div>
 
     <div class="booking-controls">
-    <span id="selected-spot-text">No spot selected</span>
-    <button id="book-spot-btn" class="book-button" disabled>
-      Book Spot
-    </button>
-  </div>
+      <label for="booking-hours">Hours</label>
+      <input id="booking-hours" type="number" min="1" step="0.5" value="1" />
+      <span id="selected-spot-text">No spot selected</span>
+      <button id="book-spot-btn" class="book-button" disabled>
+        Book Spot
+      </button>
+    </div>
   </footer>
 
   <script>
-    const spots = {{ spots | tojson }};
+    const spotData = {{ spots | tojson }};
 
     const viewport = document.getElementById("mapViewport");
     const content = document.getElementById("mapContent");
@@ -98,7 +104,10 @@
     }
 
     function spotLabel(spot) {
-      return `Spot ${spot.spot_id || "Unknown"} | ${spot.location_name || "Unknown"} | ${spot.type || "Unknown"}`;
+      const bookingState = spot.is_booked_by_current_user
+        ? "Your booking"
+        : (spot.is_booked ? "Booked" : "Available");
+      return `Spot ${spot.spot_id || "Unknown"} | ${spot.location_name || "Unknown"} | ${spot.type || "Unknown"} | ${bookingState}`;
     }
 
     function render() {
@@ -149,7 +158,7 @@
     function buildOverlay() {
       overlay.innerHTML = "";
 
-      for (const spot of spots) {
+      for (const spot of spotData) {
         const x = Number(spot.box_x_min);
         const y = Number(spot.box_y_min);
         const width = Math.max(Number(spot.box_x_max) - x, 1);
@@ -160,8 +169,16 @@
         rect.setAttribute("y", y);
         rect.setAttribute("width", width);
         rect.setAttribute("height", height);
-        rect.setAttribute("class", `spot ${normalizeSpotType(spot.type)}`);
-        rect.dataset.spotID = spot.spot_id;
+        const classNames = ["spot", normalizeSpotType(spot.type)];
+        if (spot.is_booked) {
+          classNames.push("booked");
+        }
+        if (spot.is_booked_by_current_user) {
+          classNames.push("your-booking");
+        }
+        rect.setAttribute("class", classNames.join(" "));
+        rect.dataset.spotId = spot.spot_id;
+        rect.dataset.locationId = spot.location_id;
         rect.dataset.label = spotLabel(spot);
 
         rect.addEventListener("pointerenter", (e) => {
@@ -183,7 +200,6 @@
         });
 
         rect.addEventListener("click", (e) => {
-          e.stopPropagation();
           hideTooltip();
           rect.classList.add("hovered");
           showTooltip(rect.dataset.label, e.clientX, e.clientY);
@@ -341,33 +357,112 @@
 
   <script>
   let selectedSpotId = null;
+  let selectedLocationId = null;
   let selectedSpotElement = null;
 
-  const spots = document.querySelectorAll(".spot");
+  const overlayEl = document.getElementById("spotOverlay");
+  const viewportEl = document.getElementById("mapViewport");
   const selectedText = document.getElementById("selected-spot-text");
   const bookButton = document.getElementById("book-spot-btn");
+  const hoursInput = document.getElementById("booking-hours");
+  let pointerDownPos = null;
 
-  spots.forEach((spot) => {
-    spot.addEventListener("click", () => {
-      if (spot.classList.contains("booked")) {
+  function parseHours(rawValue) {
+    const parsed = Number(rawValue);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function isValidHours(rawValue) {
+    const hours = parseHours(rawValue);
+    if (hours === null || hours < 1) {
+      return false;
+    }
+    return Math.abs(hours * 2 - Math.round(hours * 2)) < 1e-9;
+  }
+
+  function updateBookButtonState() {
+    const hasSpotSelection = Boolean(selectedSpotId && selectedLocationId);
+    bookButton.disabled = !(hasSpotSelection && isValidHours(hoursInput?.value));
+  }
+
+  function clearSelection(message = "No spot selected") {
+    if (selectedSpotElement) {
+      selectedSpotElement.classList.remove("selected");
+    }
+    selectedSpotElement = null;
+    selectedSpotId = null;
+    selectedLocationId = null;
+    selectedText.textContent = message;
+    updateBookButtonState();
+  }
+
+  function selectSpot(spot) {
+    if (!spot) {
+      return;
+    }
+    if (spot.classList.contains("booked")) {
+      return;
+    }
+
+    if (selectedSpotElement) {
+      selectedSpotElement.classList.remove("selected");
+    }
+
+    selectedSpotElement = spot;
+    selectedSpotId = spot.dataset.spotId;
+    selectedLocationId = spot.dataset.locationId;
+
+    if (!selectedSpotId || !selectedLocationId) {
+      clearSelection();
+      return;
+    }
+
+    spot.classList.add("selected");
+    selectedText.textContent = `Selected spot: ${selectedSpotId} in lot: ${spot.dataset.label.split("|")[1].trim()}`;
+    updateBookButtonState();
+  }
+
+  if (overlayEl) {
+    overlayEl.addEventListener("click", (event) => {
+      const clickedSpot = event.target.closest(".spot");
+      selectSpot(clickedSpot);
+    });
+  }
+
+  if (viewportEl) {
+    viewportEl.addEventListener("pointerdown", (event) => {
+      pointerDownPos = { x: event.clientX, y: event.clientY };
+    });
+
+    viewportEl.addEventListener("pointerup", (event) => {
+      const down = pointerDownPos;
+      pointerDownPos = null;
+      if (!down) {
         return;
       }
 
-      if (selectedSpotElement) {
-        selectedSpotElement.classList.remove("selected");
+      const dx = event.clientX - down.x;
+      const dy = event.clientY - down.y;
+      const moved = Math.hypot(dx, dy);
+      if (moved > 6) {
+        return;
       }
 
-      selectedSpotElement = spot;
-      selectedSpotId = spot.dataset.spotId;
-
-      spot.classList.add("selected");
-      selectedText.textContent = `Selected spot: ${selectedSpotId}`;
-      bookButton.disabled = false;
+      const elAtPoint = document.elementFromPoint(event.clientX, event.clientY);
+      const clickedSpot = elAtPoint?.closest?.(".spot") || null;
+      selectSpot(clickedSpot);
     });
-  });
+  }
+
+  if (hoursInput) {
+    hoursInput.addEventListener("input", () => {
+      updateBookButtonState();
+    });
+  }
 
   bookButton.addEventListener("click", async () => {
-    if (!selectedSpotId) {
+    const hours = parseHours(hoursInput?.value);
+    if (!selectedSpotId || !selectedLocationId || hours === null || !isValidHours(hours)) {
       return;
     }
 
@@ -379,7 +474,9 @@
           "X-CSRFToken": "{{ csrf_token() }}"
         },
         body: JSON.stringify({
-          spot_id: selectedSpotId
+          spot_id: selectedSpotId,
+          location_id: Number(selectedLocationId),
+          hours
         })
       });
 
@@ -390,21 +487,19 @@
         return;
       }
 
-      selectedSpotElement.classList.remove("selected");
-      selectedSpotElement.classList.add("booked");
-
-      selectedText.textContent = `Booked spot: ${selectedSpotId}`;
-      bookButton.disabled = true;
-
-      alert("Spot booked successfully!");
-
-      selectedSpotId = null;
-      selectedSpotElement = null;
+      if (selectedSpotElement) {
+        selectedSpotElement.classList.remove("selected", "hovered");
+        selectedSpotElement.classList.add("booked", "your-booking");
+      }
+      clearSelection(`Booked spot: ${selectedSpotId} for ${result.hours} hour(s)`);
+      window.location.href = result.payments_url || "/payments";
     } catch (error) {
       console.error(error);
       alert("Something went wrong while booking the spot.");
     }
   });
+
+  updateBookButtonState();
 </script>
 
 </body>
