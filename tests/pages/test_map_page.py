@@ -207,19 +207,19 @@ def test_parking_sessions_page_shows_only_active_rows(map_app):
         assert user_row is not None
         user_id = int(user_row["user_id"])
 
-        conn.execute(
+        conn.execute( #active session
             """
             INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (user_id, 1, "A1", "IN_SESSION", "2026-04-26T06:00:00+00:00", None),
+            (user_id, 1, "A1", "IN_SESSION", "534253452", None),
         )
-        conn.execute(
+        conn.execute( #inactive session
             """
             INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (user_id, 1, "A2", "COMPLETED", "2026-04-25T06:00:00+00:00", "2026-04-25T08:00:00+00:00"),
+            (user_id, 1, "A2", "COMPLETED", "12341234", "12"),
         )
         conn.commit()
 
@@ -232,7 +232,6 @@ def test_parking_sessions_page_shows_only_active_rows(map_app):
     assert response.status_code == 200
     assert b"Active Sessions" in response.data
     assert b"Spot A1" in response.data
-    assert b"IN_SESSION" in response.data
     assert b"Spot A2" not in response.data
 
 

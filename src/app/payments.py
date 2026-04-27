@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TypedDict
 
 from dataclasses import dataclass
-from datetime import datetime, timezone, UTC
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlite3 import Connection
@@ -11,7 +11,7 @@ from database.establish_db import get_connection
 
 
 def _utc_now_iso() -> int:
-    return int(datetime.now(UTC).timestamp())
+    return int(datetime.now(timezone.utc).timestamp())
 
 def format_utc_timestamp(seconds: int) -> str:
     dt = datetime.fromtimestamp(seconds, tz=timezone.utc)

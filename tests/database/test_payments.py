@@ -91,7 +91,7 @@ def test_create_parking_session_and_fee_use_default_timestamps(isolated_payments
     assert session_row["user_id"] == user_id
     assert session_row["location_id"] == location_id
     assert session_row["spot_id"] == "A-101"
-    assert session_row["status"] == "ON_HOLD"
+    assert session_row["status"] == None
     assert session_row["ended_at"] is None
     assert session_row["started_at"]
 

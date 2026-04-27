@@ -82,7 +82,7 @@ def book_spot() -> Response:
     fee_id = create_fee(
         user_id=user_id,
         session_id=session_id,
-        description=f"Normal Reservation",
+        description="Normal Reservation",
         cost=computed_cost,
         valid_for_hours=hours
     )
