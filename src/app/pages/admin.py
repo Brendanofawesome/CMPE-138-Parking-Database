@@ -53,12 +53,21 @@ def plate_check_page():
             # NOTE:
             # parking_session is keyed by user_id, not directly by vehicle,
             # so we fetch the latest session for the vehicle owner's account.
-            session = db.execute(
+            session = session = db.execute(
                 """
-                SELECT session_id, user_id, spot_id, status, started_at, ended_at, hourly_rate
-                FROM parking_session
-                WHERE user_id = ?
-                ORDER BY session_id DESC
+                SELECT
+                    ps.session_id,
+                    ps.user_id,
+                    ps.spot_id,
+                    ps.status,
+                    ps.started_at,
+                    ps.ended_at,
+                    l.hourly_cost_cents AS hourly_rate
+                FROM parking_session AS ps
+                LEFT JOIN location AS l
+                    ON ps.location_id = l.location_id
+                WHERE ps.user_id = ?
+                ORDER BY ps.session_id DESC
                 LIMIT 1
                 """,
                 (vehicle["user_id"],),
