@@ -5,6 +5,8 @@ from datetime import datetime
 
 from flask import Blueprint, g, render_template, request
 
+from ..payments import format_utc_timestamp
+
 admin_bp = Blueprint("admin", __name__)
 
 
@@ -99,6 +101,25 @@ def plate_check_page():
                 """,
                 (vehicle["user_id"], vehicle["Licence_Value"], vehicle["Licence_State"]),
             ).fetchall()
+            
+            if fees:
+                fees = [
+                    {
+                        "fee_id": fee["fee_id"],
+                        "created_at": fee["created_at"],
+                        "valid_until": fee["valid_until"],
+                        "amount": fee["amount"],
+                        "description": fee["description"],
+                        "fee_type": fee["fee_type"],
+                        "session_id": fee["session_id"],
+                        "payment_status": fee["payment_status"],
+                        "paid_at": (
+                            format_utc_timestamp(int(fee["paid_at"]))
+                            if fee["paid_at"]
+                            else "N/A")
+                                    }
+                    for fee in fees
+                ]
 
             if action == "issue_ticket":
                 if session is None:

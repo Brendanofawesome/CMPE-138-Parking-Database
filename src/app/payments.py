@@ -285,8 +285,10 @@ def get_transaction_history(user_id: int) -> list[TransactionRecord]:
             description=str(row["description"]),
             method=str(row["method"]),
             amount=float(row["amount"]),
-            paid_at=str(row["paid_at"]),
-        )
+            paid_at=(format_utc_timestamp(int(row["paid_at"]))
+                    if row["paid_at"]
+                    else "N/A"),
+                )
         for row in rows
     ]
 

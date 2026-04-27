@@ -53,6 +53,7 @@ def get_db(app: Flask) -> sqlite3.Connection:
             raise RuntimeError("GET_DATABASE function not found in app config")
         db = db_geter()
         g.current_db_conn = db
+        g.current_db_conn.set_trace_callback(print)
     if not isinstance(db, sqlite3.Connection):
         raise RuntimeError("GET_DATABASE function did not return a sqlite3.Connection")
     return db
