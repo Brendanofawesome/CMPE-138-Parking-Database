@@ -69,11 +69,30 @@ def _create_location_with_spot(*, spot_id: str = "A-101", hourly_cost_cents: int
         return int(location_id)
 
 
+def _ensure_vehicle_for_user(user_id: int, *, plate_value: str = "TEST123", plate_state: str = "CA") -> None:
+    with establish_db.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO vehicle (user_id, color, make, model, Licence_Value, Licence_State)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, None, "Unknown", "Unknown", plate_value, plate_state),
+        )
+        conn.commit()
+
+
 def test_create_parking_session_and_fee_use_default_timestamps(isolated_payments_db):
     user_id = _create_user()
     location_id = _create_location_with_spot(spot_id="A-101", hourly_cost_cents=450)
+    _ensure_vehicle_for_user(user_id, plate_value="TEST101", plate_state="CA")
 
-    session_id = payments.create_parking_session(user_id, "A-101", location_id)
+    session_id = payments.create_parking_session(
+        user_id,
+        "A-101",
+        location_id,
+        licence_value="TEST101",
+        licence_state="CA",
+    )
     fee_id = payments.create_fee(user_id, "Parking", 9.0, session_id=session_id, valid_for_hours=Decimal("2"))
 
     with closing(sqlite3.connect(isolated_payments_db)) as conn:
@@ -108,10 +127,13 @@ def test_create_parking_session_and_fee_use_default_timestamps(isolated_payments
 def test_record_payment_and_page_data_queries(isolated_payments_db):
     user_id = _create_user()
     location_id = _create_location_with_spot(spot_id="A-101", hourly_cost_cents=450)
+    _ensure_vehicle_for_user(user_id, plate_value="PAY123", plate_state="CA")
     session_id = payments.create_parking_session(
         user_id,
         "A-101",
         location_id,
+        licence_value="PAY123",
+        licence_state="CA",
         status="IN_SESSION",
     )
     unpaid_fee_id = payments.create_fee(
@@ -187,6 +209,8 @@ def test_get_active_sessions_filters_ended_sessions(isolated_payments_db):
         conn.commit()
 
     location_id = _create_location_with_spot(spot_id="A-101", hourly_cost_cents=450)
+    _ensure_vehicle_for_user(user_id, plate_value="ACT101", plate_state="CA")
+    _ensure_vehicle_for_user(other_user_id, plate_value="OTH101", plate_state="CA")
     with establish_db.get_connection() as conn:
         conn.execute(
             """
@@ -204,6 +228,8 @@ def test_get_active_sessions_filters_ended_sessions(isolated_payments_db):
         user_id,
         "A-101",
         location_id,
+        licence_value="ACT101",
+        licence_state="CA",
         status="IN_SESSION",
     )
     payments.create_fee(
@@ -217,6 +243,8 @@ def test_get_active_sessions_filters_ended_sessions(isolated_payments_db):
         user_id,
         "B-201",
         location_id,
+        licence_value="ACT101",
+        licence_state="CA",
         status="COMPLETED",
     )
     with establish_db.get_connection() as conn:
@@ -229,6 +257,8 @@ def test_get_active_sessions_filters_ended_sessions(isolated_payments_db):
         other_user_id,
         "A-101",
         location_id,
+        licence_value="OTH101",
+        licence_state="CA",
         status="IN_SESSION",
     )
 
@@ -249,7 +279,14 @@ def test_record_payment_rejects_unknown_fee(isolated_payments_db):
 
 def test_record_payment_rejects_underpayment(isolated_payments_db):
     user_id = _create_user()
-    session_id = payments.create_parking_session(user_id, "A-101", _create_location_with_spot())
+    _ensure_vehicle_for_user(user_id, plate_value="LOWPAY", plate_state="CA")
+    session_id = payments.create_parking_session(
+        user_id,
+        "A-101",
+        _create_location_with_spot(),
+        licence_value="LOWPAY",
+        licence_state="CA",
+    )
     fee_id = payments.create_fee(user_id, "Daily parking", 12.0, session_id=session_id, valid_for_hours=Decimal("2"))
 
     with pytest.raises(ValueError, match="full fee cost"):
@@ -258,9 +295,16 @@ def test_record_payment_rejects_underpayment(isolated_payments_db):
 
 def test_create_parking_session_rejects_unknown_spot_location_mapping(isolated_payments_db):
     user_id = _create_user()
+    _ensure_vehicle_for_user(user_id, plate_value="MISSING", plate_state="CA")
 
     with pytest.raises(ValueError, match="does not exist"):
-        payments.create_parking_session(user_id, "A-404", location_id=999)
+        payments.create_parking_session(
+            user_id,
+            "A-404",
+            location_id=999,
+            licence_value="MISSING",
+            licence_state="CA",
+        )
 
 
 class _NullLastRowIdCursor:
@@ -283,6 +327,8 @@ class _CreateOnlyConnection:
         self.executed.append((sql, params))
         if "SELECT location.hourly_cost_cents" in sql:
             return _LookupCursor({"hourly_cost_cents": 500})
+        if "FROM vehicle" in sql:
+            return _LookupCursor({"exists": 1})
         return _NullLastRowIdCursor()
 
     def commit(self) -> None:
@@ -328,7 +374,7 @@ def test_create_parking_session_raises_when_lastrowid_missing(monkeypatch):
     monkeypatch.setattr(payments, "get_connection", lambda: _ConnectionManager(_CreateOnlyConnection()))
 
     with pytest.raises(RuntimeError, match="parking session"):
-        payments.create_parking_session(1, "A-101", 1)
+        payments.create_parking_session(1, "A-101", 1, licence_value="TEST", licence_state="CA")
 
 
 def test_get_spot_hourly_rate_raises_when_location_rate_missing(monkeypatch):

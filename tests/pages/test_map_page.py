@@ -117,17 +117,32 @@ def test_map_shows_username_and_spot_metadata_when_logged_in(map_app):
 
         conn.execute(
             """
-            INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
+            INSERT INTO vehicle (user_id, color, make, model, Licence_Value, Licence_State)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (int(current_user_id), 1, "A1", "ON_HOLD", "2026-04-26T08:00:00+00:00", None),
+            (int(current_user_id), None, "Unknown", "Unknown", "MAP123", "CA"),
         )
         conn.execute(
             """
-            INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
+            INSERT INTO vehicle (user_id, color, make, model, Licence_Value, Licence_State)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (int(other_user_id), 1, "A2", "ON_HOLD", "2026-04-26T08:30:00+00:00", None),
+            (int(other_user_id), None, "Unknown", "Unknown", "MAP456", "CA"),
+        )
+
+        conn.execute(
+            """
+            INSERT INTO parking_session (Licence_Value, Licence_State, user_id, location_id, spot_id, status, started_at, ended_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("MAP123", "CA", int(current_user_id), 1, "A1", "ON_HOLD", "2026-04-26T08:00:00+00:00", None),
+        )
+        conn.execute(
+            """
+            INSERT INTO parking_session (Licence_Value, Licence_State, user_id, location_id, spot_id, status, started_at, ended_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("MAP456", "CA", int(other_user_id), 1, "A2", "ON_HOLD", "2026-04-26T08:30:00+00:00", None),
         )
         conn.commit()
 
@@ -166,10 +181,18 @@ def test_map_booking_state_does_not_leak_across_lots_for_same_spot_id(map_app):
 
         conn.execute(
             """
-            INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
+            INSERT INTO vehicle (user_id, color, make, model, Licence_Value, Licence_State)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (int(user_row["user_id"]), 1, "A1", "ON_HOLD", "2026-04-26T07:00:00+00:00", None),
+            (int(user_row["user_id"]), None, "Unknown", "Unknown", "LOT123", "CA"),
+        )
+
+        conn.execute(
+            """
+            INSERT INTO parking_session (Licence_Value, Licence_State, user_id, location_id, spot_id, status, started_at, ended_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("LOT123", "CA", int(user_row["user_id"]), 1, "A1", "ON_HOLD", "2026-04-26T07:00:00+00:00", None),
         )
         conn.commit()
 
@@ -207,19 +230,27 @@ def test_parking_sessions_page_shows_only_active_rows(map_app):
         assert user_row is not None
         user_id = int(user_row["user_id"])
 
-        conn.execute( #active session
+        conn.execute(
             """
-            INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
+            INSERT INTO vehicle (user_id, color, make, model, Licence_Value, Licence_State)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (user_id, 1, "A1", "IN_SESSION", "534253452", None),
+            (user_id, None, "Unknown", "Unknown", "SES123", "CA"),
+        )
+
+        conn.execute( #active session
+            """
+            INSERT INTO parking_session (Licence_Value, Licence_State, user_id, location_id, spot_id, status, started_at, ended_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("SES123", "CA", user_id, 1, "A1", "IN_SESSION", "534253452", None),
         )
         conn.execute( #inactive session
             """
-            INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO parking_session (Licence_Value, Licence_State, user_id, location_id, spot_id, status, started_at, ended_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, 1, "A2", "COMPLETED", "12341234", "12"),
+            ("SES123", "CA", user_id, 1, "A2", "COMPLETED", "12341234", "12"),
         )
         conn.commit()
 

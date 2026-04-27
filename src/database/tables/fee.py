@@ -8,11 +8,15 @@ register_table(
         name="fee",
         columns=(
             SQLColumn(name="fee_id", attribute_list="INTEGER PRIMARY KEY AUTOINCREMENT"),
+
             SQLColumn(name="user_id", attribute_list="INTEGER NOT NULL"),
+
             SQLColumn(name="parent_fee_id", attribute_list="INTEGER"),
             SQLColumn(name="session_id", attribute_list="INTEGER"),
+        
             SQLColumn(name="created_at", attribute_list="INTEGER NOT NULL"),
             SQLColumn(name="valid_until", attribute_list="INTEGER NOT NULL"),
+
             SQLColumn(name="amount", attribute_list="DOUBLE NOT NULL"),
             SQLColumn(name="description", attribute_list="TEXT"),
             SQLColumn(name="fee_type", attribute_list="TEXT NOT NULL"),

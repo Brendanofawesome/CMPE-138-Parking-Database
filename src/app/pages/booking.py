@@ -28,6 +28,17 @@ def _parse_hours(hours_raw: object) -> Decimal:
 
     return hours
 
+
+def _parse_licence_field(value_raw: object, field_name: str) -> str:
+    if value_raw is None:
+        raise ValueError(f"Missing {field_name}.")
+
+    value = str(value_raw).strip().upper()
+    if not value:
+        raise ValueError(f"Missing {field_name}.")
+
+    return value
+
 @booking_bp.route("/book-spot", methods=["POST"])
 def book_spot() -> Response:
     if g.current_user is None:
@@ -80,35 +91,53 @@ def book_spot() -> Response:
         response.status_code = 400
         return response
 
+    user_id = g.current_user["user_id"]
+    db_connection = g.current_db_conn
+
     try:
-        session_id = create_parking_session(
-            user_id=user_id,
-            spot_id=spot_id,
-            location_id=location_id,
-            licence_value=licence_value,
-            licence_state=licence_state,
-        )
+        
         hourly_rate = get_spot_hourly_rate(location_id=location_id, spot_id=spot_id)
+        computed_cost = float((Decimal(str(hourly_rate)) * hours).quantize(Decimal("0.01")))
+        
+        #enter sql transaction to ensure that session and fee are created atomically
+        db_connection.execute("BEGIN")
+        
+        session_id = create_parking_session(
+                conn=db_connection,
+                user_id=user_id,
+                spot_id=spot_id,
+                location_id=location_id,
+                licence_value=licence_value,
+                licence_state=licence_state,
+            )
+
+        fee_id = create_fee(
+            conn=db_connection,
+            user_id=user_id,
+            session_id=session_id,
+            description="Normal Reservation",
+            cost=computed_cost,
+            valid_for_hours=hours
+        )
+        #exit sql transaction
+        db_connection.execute("COMMIT")
+        
     except ValueError as error:
+        #rollback the transaction
+        db_connection.execute("ROLLBACK")
+        
         response = jsonify({"error": str(error)})
         response.status_code = 400
         return response
-
-    computed_cost = float((Decimal(str(hourly_rate)) * hours).quantize(Decimal("0.01")))
-
-    fee_id = create_fee(
-        user_id=user_id,
-        session_id=session_id,
-        description="Normal Reservation",
-        cost=computed_cost,
-        valid_for_hours=hours
-    )
+        
 
     return jsonify({
         "message": "Spot booked successfully.",
         "session_id": session_id,
         "spot_id": spot_id,
         "location_id": location_id,
+        "licence_value": licence_value,
+        "licence_state": licence_state,
         "hours": float(hours),
         "cost": computed_cost,
         "fee_id": fee_id,

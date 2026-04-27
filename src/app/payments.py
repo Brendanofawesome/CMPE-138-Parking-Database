@@ -102,7 +102,35 @@ def get_spot_hourly_rate(location_id: int, spot_id: str) -> float:
         return _resolve_spot_hourly_cost_cents(conn, location_id, spot_id) / 100.0
 
 
+def ensure_user_vehicle(user_id: int, licence_value: str, licence_state: str) -> None:
+    with get_connection() as conn:
+        vehicle_row = conn.execute(
+            """
+            SELECT user_id
+            FROM vehicle
+            WHERE Licence_Value = ?
+              AND Licence_State = ?
+            """,
+            (licence_value, licence_state),
+        ).fetchone()
+
+        if vehicle_row is None:
+            conn.execute(
+                """
+                INSERT INTO vehicle (user_id, color, make, model, Licence_Value, Licence_State)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (user_id, None, "Unknown", "Unknown", licence_value, licence_state),
+            )
+            conn.commit()
+            return
+
+        if int(vehicle_row["user_id"]) != user_id:
+            raise ValueError("License plate is already registered to another user.")
+
+
 def create_parking_session(
+    conn: Connection,
     user_id: int,
     spot_id: str,
     location_id: int,
@@ -110,46 +138,61 @@ def create_parking_session(
     licence_state: str,
     status: str | None = None
 ) -> int:
-    session_started_at =  _utc_now_iso()
-    with get_connection() as conn:
-        _resolve_spot_hourly_cost_cents(conn, location_id, spot_id)
-        cursor = conn.execute(
-            """
-            INSERT INTO parking_session (user_id, location_id, spot_id, Licence_Value, Licence_State, status, started_at, ended_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (user_id, location_id, spot_id, licence_value.strip().upper(), licence_state.strip().upper(), status, session_started_at, None),
+    session_started_at = _utc_now_iso()
+    _resolve_spot_hourly_cost_cents(conn, location_id, spot_id)
+    cursor = conn.execute(
+        """
+        INSERT INTO parking_session (
+            Licence_Value,
+            Licence_State,
+            user_id,
+            location_id,
+            spot_id,
+            status,
+            started_at,
+            ended_at
         )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            licence_value,
+            licence_state,
+            user_id,
+            location_id,
+            spot_id,
+            status,
+            session_started_at,
+            None,
+        ),
+    )
 
-        conn.commit()
-        lastrowid = cursor.lastrowid
-        if lastrowid is None:
-            raise RuntimeError("Failed to create parking session: no row id returned.")
-        return int(lastrowid)
+    lastrowid = cursor.lastrowid
+    if lastrowid is None:
+        raise RuntimeError("Failed to create parking session: no row id returned.")
+    return int(lastrowid)
 
 
 def create_fee(
+    conn: Connection,
     user_id: int,
     description: str,
     cost: float,
     session_id: int,
     valid_for_hours: Decimal,
 ) -> int:
-    with get_connection() as conn:
-        created_at = _utc_now_iso()
-        valid_until = created_at + int(valid_for_hours * Decimal(60 * 60))
-        cursor = conn.execute(
-            """
-            INSERT INTO fee (user_id, parent_fee_id, session_id, created_at, valid_until, amount, description, fee_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (0, user_id, None, session_id, created_at, valid_until, cost, description, "regular_session"),
-        )
-        conn.commit()
-        lastrowid = cursor.lastrowid
-        if lastrowid is None:
-            raise RuntimeError("Failed to create fee: no row id returned.")
-        return int(lastrowid)
+    created_at = _utc_now_iso()
+    valid_until = created_at + int(valid_for_hours * Decimal(60 * 60))
+    cursor = conn.execute(
+        """
+        INSERT INTO fee (user_id, parent_fee_id, session_id, created_at, valid_until, amount, description, fee_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (user_id, None, session_id, created_at, valid_until, cost, description, "regular_session"),
+    )
+    lastrowid = cursor.lastrowid
+    if lastrowid is None:
+        raise RuntimeError("Failed to create fee: no row id returned.")
+    return int(lastrowid)
 
 
 def record_payment(fee_id: int, amount: float, method: str, *, paid_at: int | None = None) -> int:

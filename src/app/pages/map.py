@@ -27,6 +27,8 @@ def map_page() -> ResponseReturnValue:
     saved_vehicles: list[dict[str, str]] = []
     username = ""
     is_logged_in = False
+    initial_licence_value = ""
+    initial_licence_state = ""
     current_user = g.get("current_user")
     current_user_id = int(current_user["user_id"]) if current_user is not None else -1
 
@@ -109,6 +111,20 @@ def map_page() -> ResponseReturnValue:
                 if user_row is not None:
                     username = str(user_row["username"])
                     is_logged_in = True
+
+                vehicle_row = db.execute(
+                    """
+                    SELECT Licence_Value, Licence_State
+                    FROM vehicle
+                    WHERE user_id = ?
+                    ORDER BY rowid DESC
+                    LIMIT 1
+                    """,
+                    (current_user_id,),
+                ).fetchone()
+                if vehicle_row is not None:
+                    initial_licence_value = str(vehicle_row["Licence_Value"])
+                    initial_licence_state = str(vehicle_row["Licence_State"])
         except sqlite3.OperationalError:
             spots = []
             username = ""
