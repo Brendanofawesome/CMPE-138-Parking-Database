@@ -2,10 +2,12 @@ body.auth-page {
     min-height: 100vh;
     display: grid;
     place-items: center;
+    box-sizing: border-box;
+    padding: 12px;
 }
 
 .card {
-    width: min(420px, 92vw);
+    width: min(1200px, 100%);
     background: var(--panel);
     border-radius: 16px;
     padding: 28px;
@@ -58,4 +60,26 @@ button {
 .footer {
     margin-top: 16px;
     text-align: center;
+}
+
+.payments-section {
+    margin-top: 18px;
+}
+
+.payments-list {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+    display: grid;
+    gap: 10px;
+}
+
+.payments-item {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    align-items: center;
 }

@@ -1,0 +1,32 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Parking Sessions{% endblock %}
+
+{% block content %}
+  <h1 class="app-title auth-title">Parking Sessions</h1>
+  <p class="app-muted auth-lede">Review your currently active parking sessions.</p>
+
+  <section class="payments-section">
+    <h2 class="section-title">Active Sessions</h2>
+    {% if active_sessions %}
+      <ul class="payments-list">
+        {% for session in active_sessions %}
+          <li class="payments-item">
+            <div>
+              <strong>Spot {{ session.spot_id }}, Lot: {{ session.lot_name }}, Time remaining: {{ session.time_remaining }}</strong><br />
+              <span class="app-muted">Session #{{ session.session_id }}</span><br />
+              <span class="app-muted">Started: {{ session.started_at }}</span><br />
+            </div>
+            <div>
+              <strong>${{ "%.2f"|format(session.total_cost) }} at ${{ "%.2f"|format(session.hourly_rate) }}/hr</strong>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="app-muted">No active parking sessions.</p>
+    {% endif %}
+  </section>
+
+  <p class="footer app-muted"><a class="app-link" href="{{ url_for('home') }}">Back to map</a></p>
+{% endblock %}
