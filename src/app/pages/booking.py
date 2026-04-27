@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from flask import Blueprint, request, jsonify, g, Response, url_for
 
 from app.payments import create_fee, create_parking_session, get_spot_hourly_rate
+from app.vehicles import user_owns_vehicle
 
 booking_bp = Blueprint("booking", __name__)
 
@@ -38,6 +39,7 @@ def book_spot() -> Response:
     spot_id = data.get("spot_id") if data else None
     location_id_raw = data.get("location_id") if data else None
     hours_raw = data.get("hours") if data else None
+    vehicle_raw = data.get("vehicle") if data else None
 
     if not spot_id:
         response = jsonify({"error": "Missing spot_id."})
@@ -56,6 +58,14 @@ def book_spot() -> Response:
         response.status_code = 400
         return response
 
+
+    if not vehicle_raw or "|" not in str(vehicle_raw):
+        response = jsonify({"error": "Please select a saved vehicle."})
+        response.status_code = 400
+        return response
+
+    licence_value, licence_state = str(vehicle_raw).split("|", 1)
+
     try:
         hours = _parse_hours(hours_raw)
     except ValueError as error:
@@ -65,11 +75,18 @@ def book_spot() -> Response:
 
     user_id = g.current_user["user_id"]
 
+    if not user_owns_vehicle(int(user_id), licence_value, licence_state):
+        response = jsonify({"error": "Selected vehicle is not saved to your profile."})
+        response.status_code = 400
+        return response
+
     try:
         session_id = create_parking_session(
             user_id=user_id,
             spot_id=spot_id,
-            location_id=location_id
+            location_id=location_id,
+            licence_value=licence_value,
+            licence_state=licence_state,
         )
         hourly_rate = get_spot_hourly_rate(location_id=location_id, spot_id=spot_id)
     except ValueError as error:

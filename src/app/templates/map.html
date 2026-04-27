@@ -17,6 +17,7 @@
         <span class="username">Signed in as {{ username }}</span>
         <a class="app-link" href="{{ url_for('payments.payments_page') }}">Payments</a>
         <a class="app-link" href="{{ url_for('parking_sessions.parking_sessions_page') }}">Parking Sessions</a>
+        <a class="app-link" href="{{ url_for('vehicles.vehicles_page') }}">Vehicles</a>
         <form action="{{ url_for('login.logout') }}" method="POST">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <button type="submit">Logout</button>
@@ -64,6 +65,13 @@
     <div class="booking-controls">
       <label for="booking-hours">Hours</label>
       <input id="booking-hours" type="number" min="1" step="0.5" value="1" />
+      <label for="booking-vehicle">Vehicle</label>
+      <select id="booking-vehicle">
+        <option value="">Select vehicle</option>
+        {% for vehicle in saved_vehicles %}
+          <option value="{{ vehicle.license_value }}|{{vehicle.license_state}}">{{ vehicle.make }} {{ vehicle.model }} ({{ vehicle.license_value }}-{{ vehicle.license_state }})</option>
+        {% endfor %}
+      </select>
       <span id="selected-spot-text">No spot selected</span>
       <button id="book-spot-btn" class="book-button" disabled>
         Book Spot
@@ -365,6 +373,7 @@
   const selectedText = document.getElementById("selected-spot-text");
   const bookButton = document.getElementById("book-spot-btn");
   const hoursInput = document.getElementById("booking-hours");
+  const vehicleSelect = document.getElementById("booking-vehicle");
   let pointerDownPos = null;
 
   function parseHours(rawValue) {
@@ -382,7 +391,8 @@
 
   function updateBookButtonState() {
     const hasSpotSelection = Boolean(selectedSpotId && selectedLocationId);
-    bookButton.disabled = !(hasSpotSelection && isValidHours(hoursInput?.value));
+    const hasVehicleSelection = Boolean(vehicleSelect?.value);
+    bookButton.disabled = !(hasSpotSelection && hasVehicleSelection && isValidHours(hoursInput?.value));
   }
 
   function clearSelection(message = "No spot selected") {
@@ -460,9 +470,16 @@
     });
   }
 
+  if (vehicleSelect) {
+    vehicleSelect.addEventListener("change", () => {
+      updateBookButtonState();
+    });
+  }
+
   bookButton.addEventListener("click", async () => {
     const hours = parseHours(hoursInput?.value);
-    if (!selectedSpotId || !selectedLocationId || hours === null || !isValidHours(hours)) {
+    const selectedVehicle = vehicleSelect?.value || "";
+    if (!selectedSpotId || !selectedLocationId || !selectedVehicle || hours === null || !isValidHours(hours)) {
       return;
     }
 
@@ -476,7 +493,8 @@
         body: JSON.stringify({
           spot_id: selectedSpotId,
           location_id: Number(selectedLocationId),
-          hours
+          hours,
+          vehicle: selectedVehicle
         })
       });
 

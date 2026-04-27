@@ -44,6 +44,7 @@ class ActiveParkingSession:
     session_id: int
     spot_id: str
     lot_name: str
+    vehicle_label: str
     status: str
     started_at: str
     hourly_rate: float
@@ -105,6 +106,8 @@ def create_parking_session(
     user_id: int,
     spot_id: str,
     location_id: int,
+    licence_value: str,
+    licence_state: str,
     status: str | None = None
 ) -> int:
     session_started_at =  _utc_now_iso()
@@ -112,10 +115,10 @@ def create_parking_session(
         _resolve_spot_hourly_cost_cents(conn, location_id, spot_id)
         cursor = conn.execute(
             """
-            INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO parking_session (user_id, location_id, spot_id, Licence_Value, Licence_State, status, started_at, ended_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, location_id, spot_id, status, session_started_at, None),
+            (user_id, location_id, spot_id, licence_value.strip().upper(), licence_state.strip().upper(), status, session_started_at, None),
         )
 
         conn.commit()
@@ -137,8 +140,8 @@ def create_fee(
         valid_until = created_at + int(valid_for_hours * Decimal(60 * 60))
         cursor = conn.execute(
             """
-            INSERT INTO fee (vehicle_id, user_id, parent_fee_id, session_id, created_at, valid_until, amount, description, fee_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO fee (user_id, parent_fee_id, session_id, created_at, valid_until, amount, description, fee_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (0, user_id, None, session_id, created_at, valid_until, cost, description, "regular_session"),
         )
@@ -203,6 +206,7 @@ def get_outstanding_fees(user_id: int) -> list[OutstandingFee]:
             session_id=row["session_id"],
             description=str(row["description"]),
             cost=float(row["cost"]),
+            vehicle_label=str(row["vehicle_label"] if "vehicle_label" in row.keys() else "Unknown Vehicle"),
             status=str(row["status"]),
             valid_until=row["valid_until"],
             created_at=str(row["created_at"]),
@@ -254,6 +258,7 @@ def get_active_sessions(user_id: int) -> list[ActiveParkingSession]:
                 ps.spot_id,
                 ps.status,
                 ps.started_at,
+                COALESCE(ps.Licence_Value || " (" || ps.Licence_State || ")", "Unknown Vehicle") AS vehicle_label,
                 COALESCE(fee_total.total_amount, 0) AS amount,
                 COALESCE(l.lot_name, 'Unknown Lot') AS lot_name,
                 COALESCE(l.hourly_cost_cents, 0) / 100.0 AS hourly_rate,
@@ -292,6 +297,7 @@ def get_active_sessions(user_id: int) -> list[ActiveParkingSession]:
             session_id=int(row["session_id"]),
             spot_id=str(row["spot_id"]),
             lot_name=str(row["lot_name"]),
+            vehicle_label=str(row["vehicle_label"]),
             status=str(row["status"]),
             started_at=format_utc_timestamp(int(row["started_at"])),
             hourly_rate=float(row["hourly_rate"]),

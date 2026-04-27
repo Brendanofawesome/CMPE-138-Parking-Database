@@ -24,6 +24,7 @@ def map_page() -> ResponseReturnValue:
             g.current_db_conn = db
 
     spots: list[dict[str, int | str]] = []
+    saved_vehicles: list[dict[str, str]] = []
     username = ""
     is_logged_in = False
     current_user = g.get("current_user")
@@ -81,6 +82,26 @@ def map_page() -> ResponseReturnValue:
             ]
 
             if current_user is not None:
+                vehicle_rows = db.execute(
+                    """
+                    SELECT Licence_Value, Licence_State, make, model
+                    FROM vehicle
+                    WHERE user_id = ?
+                    ORDER BY Licence_State, Licence_Value
+                    """,
+                    (current_user["user_id"],),
+                ).fetchall()
+                saved_vehicles = [
+                    {
+                        "license_value": str(row["Licence_Value"]),
+                        "license_state": str(row["Licence_State"]),
+                        "make": str(row["make"]),
+                        "model": str(row["model"]),
+                        "color": str(row["color"] or ""),
+                    }
+                    for row in vehicle_rows
+                ]
+
                 user_row = db.execute(
                     "SELECT username FROM user WHERE user_id = ?",
                     (current_user["user_id"],),
@@ -92,6 +113,7 @@ def map_page() -> ResponseReturnValue:
             spots = []
             username = ""
             is_logged_in = False
+            saved_vehicles = []
 
     return render_template(
         "map.html",
@@ -99,6 +121,7 @@ def map_page() -> ResponseReturnValue:
         spots=spots,
         username=username,
         is_logged_in=is_logged_in,
+        saved_vehicles=saved_vehicles,
     )
 
 

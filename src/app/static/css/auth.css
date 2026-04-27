@@ -83,3 +83,29 @@ button {
     gap: 10px;
     align-items: center;
 }
+
+.success-message {
+    margin-bottom: 12px;
+    color: #166534;
+    font-weight: 600;
+}
+
+.vehicle-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+
+.vehicle-form-grid input {
+    margin-bottom: 0;
+}
+
+.vehicle-form-submit {
+    display: flex;
+    align-items: end;
+}
+
+.vehicle-item form {
+    width: 100%;
+}
