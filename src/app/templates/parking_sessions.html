@@ -13,12 +13,12 @@
         {% for session in active_sessions %}
           <li class="payments-item">
             <div>
-              <strong>Spot {{ session.spot_id }}</strong><br />
-              <span class="app-muted">Session #{{ session.session_id }} | Status: {{ session.status }}</span><br />
-              <span class="app-muted">Started: {{ session.started_at }}</span>
+              <strong>Spot {{ session.spot_id }}, Lot: {{ session.lot_name }}, Time remaining: {{ session.time_remaining }}</strong><br />
+              <span class="app-muted">Session #{{ session.session_id }}</span><br />
+              <span class="app-muted">Started: {{ session.started_at }}</span><br />
             </div>
             <div>
-              <strong>${{ "%.2f"|format(session.hourly_rate) }}/hr</strong>
+              <strong>${{ "%.2f"|format(session.total_cost) }} at ${{ "%.2f"|format(session.hourly_rate) }}/hr</strong>
             </div>
           </li>
         {% endfor %}

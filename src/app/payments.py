@@ -2,16 +2,20 @@ from __future__ import annotations
 from typing import TypedDict
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
+from decimal import Decimal
 
 from sqlite3 import Connection
 
 from database.establish_db import get_connection
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def _utc_now_iso() -> int:
+    return int(datetime.now(UTC).timestamp())
 
+def format_utc_timestamp(seconds: int) -> str:
+    dt = datetime.fromtimestamp(seconds, tz=timezone.utc)
+    return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 @dataclass(frozen=True, slots=True)
 class OutstandingFee:
@@ -39,25 +43,32 @@ class TransactionRecord:
 class ActiveParkingSession:
     session_id: int
     spot_id: str
+    lot_name: str
     status: str
     started_at: str
     hourly_rate: float
+    total_cost: float
+    time_remaining: str
 
 
+def _format_time_remaining(valid_until_ts: int | None) -> str:
+    if valid_until_ts is None:
+        return "Unavailable"
 
-def _default_fee_timestamps(created_at: str | None, valid_until: str | None) -> tuple[int, int]:
     now_seconds = int(datetime.now(timezone.utc).timestamp())
-    if created_at is None:
-        created_ts = now_seconds
-    else:
-        created_ts = int(datetime.fromisoformat(created_at).timestamp())
+    remaining_seconds = valid_until_ts - now_seconds
+    if remaining_seconds <= 0:
+        return "Expired"
 
-    if valid_until is None:
-        valid_until_ts = created_ts + 24 * 60 * 60
-    else:
-        valid_until_ts = int(datetime.fromisoformat(valid_until).timestamp())
+    days, day_remainder = divmod(remaining_seconds, 24 * 60 * 60)
+    hours, hour_remainder = divmod(day_remainder, 60 * 60)
+    minutes = max(hour_remainder // 60, 0)
 
-    return created_ts, valid_until_ts
+    if days > 0:
+        return f"{days}d {hours}h"
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
 
 
 def _resolve_spot_hourly_cost_cents(conn: Connection, location_id: int, spot_id: str) -> int:
@@ -94,12 +105,9 @@ def create_parking_session(
     user_id: int,
     spot_id: str,
     location_id: int,
-    *,
-    status: str = "ON_HOLD",
-    started_at: str | None = None,
-    ended_at: str | None = None,
+    status: str | None = None
 ) -> int:
-    session_started_at = started_at or _utc_now_iso()
+    session_started_at =  _utc_now_iso()
     with get_connection() as conn:
         _resolve_spot_hourly_cost_cents(conn, location_id, spot_id)
         cursor = conn.execute(
@@ -107,7 +115,7 @@ def create_parking_session(
             INSERT INTO parking_session (user_id, location_id, spot_id, status, started_at, ended_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (user_id, location_id, spot_id, status, session_started_at, ended_at),
+            (user_id, location_id, spot_id, status, session_started_at, None),
         )
 
         conn.commit()
@@ -121,19 +129,18 @@ def create_fee(
     user_id: int,
     description: str,
     cost: float,
-    *,
-    session_id: int | None = None,
-    valid_until: str | None = None,
-    created_at: str | None = None,
+    session_id: int,
+    valid_for_hours: Decimal,
 ) -> int:
     with get_connection() as conn:
-        created_ts, valid_until_ts = _default_fee_timestamps(created_at, valid_until)
+        created_at = _utc_now_iso()
+        valid_until = created_at + int(valid_for_hours * Decimal(60 * 60))
         cursor = conn.execute(
             """
             INSERT INTO fee (vehicle_id, user_id, parent_fee_id, session_id, created_at, valid_until, amount, description, fee_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (0, user_id, None, session_id, created_ts, valid_until_ts, cost, description, "regular_session"),
+            (0, user_id, None, session_id, created_at, valid_until, cost, description, "regular_session"),
         )
         conn.commit()
         lastrowid = cursor.lastrowid
@@ -142,7 +149,7 @@ def create_fee(
         return int(lastrowid)
 
 
-def record_payment(fee_id: int, amount: float, method: str, *, paid_at: str | None = None) -> int:
+def record_payment(fee_id: int, amount: float, method: str, *, paid_at: int | None = None) -> int:
     payment_paid_at = paid_at or _utc_now_iso()
     with get_connection() as conn:
         fee_row = conn.execute(
@@ -243,16 +250,39 @@ def get_active_sessions(user_id: int) -> list[ActiveParkingSession]:
         rows = conn.execute(
             """
             SELECT
-                parking_session.session_id,
-                parking_session.spot_id,
-                parking_session.status,
-                parking_session.started_at,
-                COALESCE(location.hourly_cost_cents, 0) / 100.0 AS hourly_rate
-            FROM parking_session
-            LEFT JOIN location ON location.location_id = parking_session.location_id
-            WHERE parking_session.user_id = ?
-                AND parking_session.ended_at IS NULL
-            ORDER BY parking_session.started_at DESC, parking_session.session_id DESC
+                ps.session_id,
+                ps.spot_id,
+                ps.status,
+                ps.started_at,
+                COALESCE(fee_total.total_amount, 0) AS amount,
+                COALESCE(l.lot_name, 'Unknown Lot') AS lot_name,
+                COALESCE(l.hourly_cost_cents, 0) / 100.0 AS hourly_rate,
+                latest_fee.valid_until AS valid_until
+            FROM parking_session ps
+            LEFT JOIN location l 
+                ON l.location_id = ps.location_id
+
+            -- total fee per session
+            LEFT JOIN (
+                SELECT session_id, SUM(amount) AS total_amount
+                FROM fee
+                WHERE session_id IS NOT NULL
+                GROUP BY session_id
+            ) AS fee_total 
+                ON fee_total.session_id = ps.session_id
+
+            -- latest valid_until per session
+            LEFT JOIN (
+                SELECT session_id, MAX(valid_until) AS valid_until
+                FROM fee
+                WHERE session_id IS NOT NULL
+                GROUP BY session_id
+            ) AS latest_fee 
+                ON latest_fee.session_id = ps.session_id
+
+            WHERE ps.user_id = ?
+                AND ps.ended_at IS NULL
+            ORDER BY ps.started_at DESC, ps.session_id DESC
             """,
             (user_id,),
         ).fetchall()
@@ -261,9 +291,14 @@ def get_active_sessions(user_id: int) -> list[ActiveParkingSession]:
         ActiveParkingSession(
             session_id=int(row["session_id"]),
             spot_id=str(row["spot_id"]),
+            lot_name=str(row["lot_name"]),
             status=str(row["status"]),
-            started_at=str(row["started_at"]),
+            started_at=format_utc_timestamp(int(row["started_at"])),
             hourly_rate=float(row["hourly_rate"]),
+            total_cost=float(row["amount"]),  # now correct total
+            time_remaining=_format_time_remaining(
+                int(row["valid_until"]) if row["valid_until"] is not None else None
+            ),
         )
         for row in rows
     ]

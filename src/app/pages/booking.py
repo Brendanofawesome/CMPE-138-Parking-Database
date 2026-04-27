@@ -69,8 +69,7 @@ def book_spot() -> Response:
         session_id = create_parking_session(
             user_id=user_id,
             spot_id=spot_id,
-            location_id=location_id,
-            status="ON_HOLD"
+            location_id=location_id
         )
         hourly_rate = get_spot_hourly_rate(location_id=location_id, spot_id=spot_id)
     except ValueError as error:
@@ -83,8 +82,9 @@ def book_spot() -> Response:
     fee_id = create_fee(
         user_id=user_id,
         session_id=session_id,
-        description=f"Parking reservation for spot {spot_id}",
+        description=f"Normal Reservation",
         cost=computed_cost,
+        valid_for_hours=hours
     )
 
     return jsonify({

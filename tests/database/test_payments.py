@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from decimal import Decimal
 from contextlib import closing
 from importlib import reload
 
@@ -73,7 +74,7 @@ def test_create_parking_session_and_fee_use_default_timestamps(isolated_payments
     location_id = _create_location_with_spot(spot_id="A-101", hourly_cost_cents=450)
 
     session_id = payments.create_parking_session(user_id, "A-101", location_id)
-    fee_id = payments.create_fee(user_id, "Parking", 9.0, session_id=session_id)
+    fee_id = payments.create_fee(user_id, "Parking", 9.0, session_id=session_id, valid_for_hours=Decimal("2"))
 
     with closing(sqlite3.connect(isolated_payments_db)) as conn:
         conn.row_factory = sqlite3.Row
@@ -112,28 +113,27 @@ def test_record_payment_and_page_data_queries(isolated_payments_db):
         "A-101",
         location_id,
         status="IN_SESSION",
-        started_at="2026-04-20T09:00:00+00:00",
     )
     unpaid_fee_id = payments.create_fee(
         user_id,
         "Parking for garage A",
         9.0,
         session_id=session_id,
-        created_at="2026-04-20T10:00:00+00:00",
+        valid_for_hours=Decimal("2"),
     )
     paid_fee_id = payments.create_fee(
         user_id,
         "Overstay violation",
         25.0,
-        valid_until="2026-04-21T22:00:00+00:00",
-        created_at="2026-04-20T11:00:00+00:00",
+        session_id=session_id,
+        valid_for_hours=Decimal("24"),
     )
 
     payment_id = payments.record_payment(
         fee_id=paid_fee_id,
         amount=25.0,
         method="CARD",
-        paid_at="2026-04-20T11:30:00+00:00",
+        paid_at=1234567,
     )
 
     payment_page = payments.get_payment_page_data(user_id)
@@ -205,32 +205,41 @@ def test_get_active_sessions_filters_ended_sessions(isolated_payments_db):
         "A-101",
         location_id,
         status="IN_SESSION",
-        started_at="2026-04-20T09:00:00+00:00",
-        ended_at=None,
     )
-    payments.create_parking_session(
+    payments.create_fee(
+        user_id,
+        "Parking reservation for A-101",
+        9.0,
+        session_id=active_session_id,
+        valid_for_hours=Decimal("876000"),
+    )
+    completed_session_id = payments.create_parking_session(
         user_id,
         "B-201",
         location_id,
         status="COMPLETED",
-        started_at="2026-04-19T09:00:00+00:00",
-        ended_at="2026-04-19T11:00:00+00:00",
     )
+    with establish_db.get_connection() as conn:
+        conn.execute(
+            "UPDATE parking_session SET ended_at = ? WHERE session_id = ?",
+            ("2026-04-19T11:00:00+00:00", completed_session_id),
+        )
+        conn.commit()
     payments.create_parking_session(
         other_user_id,
         "A-101",
         location_id,
         status="IN_SESSION",
-        started_at="2026-04-20T10:00:00+00:00",
-        ended_at=None,
     )
 
     active_sessions = payments.get_active_sessions(user_id)
     assert len(active_sessions) == 1
     assert active_sessions[0].session_id == active_session_id
     assert active_sessions[0].spot_id == "A-101"
+    assert active_sessions[0].lot_name == "Garage A"
     assert active_sessions[0].status == "IN_SESSION"
     assert active_sessions[0].hourly_rate == 4.5
+    assert active_sessions[0].time_remaining not in {"Unavailable", "Expired"}
 
 
 def test_record_payment_rejects_unknown_fee(isolated_payments_db):
@@ -240,7 +249,8 @@ def test_record_payment_rejects_unknown_fee(isolated_payments_db):
 
 def test_record_payment_rejects_underpayment(isolated_payments_db):
     user_id = _create_user()
-    fee_id = payments.create_fee(user_id, "Daily parking", 12.0)
+    session_id = payments.create_parking_session(user_id, "A-101", _create_location_with_spot())
+    fee_id = payments.create_fee(user_id, "Daily parking", 12.0, session_id=session_id, valid_for_hours=Decimal("2"))
 
     with pytest.raises(ValueError, match="full fee cost"):
         payments.record_payment(fee_id=fee_id, amount=10.0, method="CARD")
@@ -336,7 +346,7 @@ def test_create_fee_raises_when_lastrowid_missing(monkeypatch):
     monkeypatch.setattr(payments, "get_connection", lambda: _ConnectionManager(_CreateOnlyConnection()))
 
     with pytest.raises(RuntimeError, match="create fee"):
-        payments.create_fee(1, "Parking", 9.0)
+        payments.create_fee(1, "Parking", 9.0, session_id=1, valid_for_hours=Decimal("2"))
 
 
 def test_record_payment_raises_when_lastrowid_missing(monkeypatch):
